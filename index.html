@@ -1,0 +1,1786 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Monitor Efficienza Operatori</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+<style>
+:root {
+  --bg:        #f4f1ea;
+  --surface:   #ffffff;
+  --ink:       #1a1410;
+  --ink-soft:  #5a534d;
+  --line:      #e0d9cb;
+  --line-soft: #ede8de;
+  --accent:    #b8893a;
+  --accent-2:  #8a6628;
+  --ok:        #2e7d32;
+  --ok-soft:   #e8f5e9;
+  --warn:      #c62828;
+  --warn-soft: #ffebee;
+  --info:      #1565c0;
+  --info-soft: #e3f2fd;
+  --shadow-sm: 0 1px 2px rgba(26,20,16,.06), 0 1px 3px rgba(26,20,16,.04);
+  --shadow-md: 0 4px 6px rgba(26,20,16,.05), 0 10px 15px rgba(26,20,16,.08);
+  --shadow-lg: 0 10px 15px rgba(26,20,16,.08), 0 20px 40px rgba(26,20,16,.12);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow-x: hidden; }
+body {
+  font-family: 'Outfit', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+  line-height: 1.5;
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; }
+input, select { font-family: inherit; font-size: inherit; color: inherit; }
+
+/* ───────────── HEADER ───────────── */
+.app-header {
+  background: var(--ink);
+  color: #f4f1ea;
+  padding: 14px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: var(--shadow-md);
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+.brand { display: flex; align-items: center; gap: 12px; }
+.brand-mark {
+  width: 36px; height: 36px;
+  background: var(--accent);
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 800; font-size: 18px; color: var(--ink);
+  letter-spacing: -1px;
+  border-radius: 4px;
+}
+.brand-title { font-size: 15px; font-weight: 600; letter-spacing: .2px; line-height: 1.1; }
+.brand-sub   { font-size: 11px; color: rgba(244,241,234,.5); letter-spacing: 2px; text-transform: uppercase; font-weight: 500; }
+
+.header-actions { display: flex; gap: 8px; align-items: center; }
+.status-dot {
+  width: 8px; height: 8px; border-radius: 50%; background: #888;
+  transition: background .2s;
+}
+.status-dot.ok { background: #4caf50; box-shadow: 0 0 8px #4caf50; }
+.status-dot.err { background: #f44336; box-shadow: 0 0 8px #f44336; }
+.icon-btn {
+  width: 38px; height: 38px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 6px;
+  color: rgba(244,241,234,.85);
+  transition: background .15s;
+}
+.icon-btn:hover { background: rgba(255,255,255,.08); }
+.icon-btn svg { width: 20px; height: 20px; }
+
+/* ───────────── TABS ───────────── */
+.tabs-nav {
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  position: sticky;
+  top: 64px;
+  z-index: 40;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.tabs-nav::-webkit-scrollbar { display: none; }
+.tab-btn {
+  flex: 1;
+  min-width: 110px;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink-soft);
+  border-bottom: 3px solid transparent;
+  white-space: nowrap;
+  transition: all .15s;
+}
+.tab-btn:hover { color: var(--ink); background: var(--line-soft); }
+.tab-btn.active {
+  color: var(--ink);
+  border-bottom-color: var(--accent);
+  font-weight: 600;
+}
+.tab-btn svg { width: 18px; height: 18px; }
+
+/* ───────────── PAGE LAYOUT ───────────── */
+.page {
+  display: none;
+  padding: 24px 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+.page.active { display: block; }
+.page-title {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -.4px;
+  margin-bottom: 4px;
+}
+.page-sub {
+  font-size: 13px;
+  color: var(--ink-soft);
+  margin-bottom: 24px;
+}
+
+/* ───────────── INSERIMENTO — Bottoni di scansione ───────────── */
+.scan-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 540px;
+  margin: 0 auto;
+}
+.scan-btn {
+  width: 100%;
+  background: var(--surface);
+  border: 2px solid var(--line);
+  padding: 22px 20px;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  text-align: left;
+  border-radius: 8px;
+  transition: all .2s;
+  position: relative;
+  box-shadow: var(--shadow-sm);
+}
+.scan-btn:hover:not(:disabled):not(.locked) {
+  border-color: var(--accent);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+.scan-btn:active:not(:disabled):not(.locked) { transform: translateY(0); }
+.scan-btn:disabled { opacity: .45; cursor: not-allowed; }
+.scan-btn.filled { background: var(--ok-soft); border-color: var(--ok); }
+.scan-btn.locked { cursor: default; }
+
+.scan-icon {
+  width: 56px; height: 56px;
+  flex-shrink: 0;
+  background: var(--ink);
+  color: var(--accent);
+  border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+}
+.scan-btn.filled .scan-icon { background: var(--ok); color: #fff; }
+.scan-icon svg { width: 28px; height: 28px; }
+
+.scan-info { flex: 1; min-width: 0; }
+.scan-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: var(--ink-soft);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.scan-btn.filled .scan-label { color: var(--ok); }
+.scan-value {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 1.25;
+  word-break: break-word;
+}
+.scan-value.placeholder { color: #b8b1a4; font-weight: 400; font-style: italic; }
+.scan-code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: var(--ink-soft);
+  margin-top: 2px;
+  font-weight: 500;
+}
+
+.scan-status { flex-shrink: 0; }
+.scan-status svg { width: 24px; height: 24px; color: var(--ok); }
+
+/* OP scan button (terzo, attivo solo se i primi due sono compilati) */
+.scan-btn.primary {
+  background: var(--ink);
+  color: #f4f1ea;
+  border-color: var(--ink);
+}
+.scan-btn.primary .scan-icon { background: var(--accent); color: var(--ink); }
+.scan-btn.primary .scan-label { color: var(--accent); }
+.scan-btn.primary .scan-value { color: #fff; }
+.scan-btn.primary:hover:not(:disabled) {
+  background: #2a221c;
+  transform: translateY(-1px);
+}
+
+/* Counter chiusi oggi */
+.counter-card {
+  margin: 32px auto 0;
+  max-width: 540px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: var(--shadow-sm);
+}
+.counter-info { flex: 1; }
+.counter-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.counter-value {
+  font-size: 56px;
+  font-weight: 800;
+  letter-spacing: -2px;
+  line-height: 1;
+  color: var(--ink);
+  margin-top: 6px;
+  font-family: 'JetBrains Mono', monospace;
+}
+.counter-detail {
+  font-size: 12px;
+  color: var(--ink-soft);
+  margin-top: 6px;
+}
+.reset-btn {
+  background: var(--line-soft);
+  color: var(--ink);
+  padding: 10px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  display: flex; align-items: center; gap: 6px;
+  transition: background .15s;
+}
+.reset-btn:hover { background: var(--line); }
+.reset-btn svg { width: 14px; height: 14px; }
+
+/* ───────────── RIEPILOGO ───────────── */
+.filter-bar {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  align-items: end;
+  box-shadow: var(--shadow-sm);
+}
+.filter-field { display: flex; flex-direction: column; gap: 4px; }
+.filter-field label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .5px;
+  color: var(--ink-soft);
+  text-transform: uppercase;
+}
+.filter-field input,
+.filter-field select {
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg);
+  font-size: 14px;
+  transition: border-color .15s;
+}
+.filter-field input:focus,
+.filter-field select:focus { outline: none; border-color: var(--accent); }
+
+.toolbar-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.btn {
+  padding: 10px 16px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all .15s;
+  white-space: nowrap;
+}
+.btn svg { width: 16px; height: 16px; }
+.btn-primary { background: var(--ink); color: #f4f1ea; }
+.btn-primary:hover { background: #2a221c; }
+.btn-success { background: var(--ok); color: #fff; }
+.btn-success:hover { background: #256528; }
+.btn-ghost { background: var(--surface); border: 1px solid var(--line); color: var(--ink); }
+.btn-ghost:hover { border-color: var(--ink); }
+
+.summary-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.stat-mini {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 14px 16px;
+  box-shadow: var(--shadow-sm);
+}
+.stat-mini .l {
+  font-size: 11px; letter-spacing: 1px; color: var(--ink-soft);
+  font-weight: 600; text-transform: uppercase;
+}
+.stat-mini .v {
+  font-size: 26px; font-weight: 700; margin-top: 4px; letter-spacing: -.5px;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.table-wrap {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+.table-scroll { overflow-x: auto; }
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  min-width: 720px;
+}
+.data-table thead {
+  background: var(--ink);
+  color: #f4f1ea;
+}
+.data-table th {
+  padding: 12px 14px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+.data-table tbody tr {
+  border-bottom: 1px solid var(--line-soft);
+  transition: background .1s;
+}
+.data-table tbody tr:hover { background: var(--line-soft); }
+.data-table tbody tr:last-child { border-bottom: none; }
+.data-table td {
+  padding: 12px 14px;
+  vertical-align: middle;
+}
+.data-table .mono { font-family: 'JetBrains Mono', monospace; font-size: 13px; }
+.data-table .badge {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--line-soft);
+  font-family: 'JetBrains Mono', monospace;
+  letter-spacing: .5px;
+}
+
+.empty-state {
+  padding: 60px 20px;
+  text-align: center;
+  color: var(--ink-soft);
+}
+.empty-state svg { width: 48px; height: 48px; opacity: .3; margin-bottom: 12px; }
+.empty-state h3 { font-size: 17px; font-weight: 600; margin-bottom: 4px; color: var(--ink); }
+.empty-state p { font-size: 14px; }
+
+/* ───────────── DASHBOARD ───────────── */
+.period-selector {
+  display: inline-flex;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 4px;
+  margin-bottom: 20px;
+  box-shadow: var(--shadow-sm);
+}
+.period-btn {
+  padding: 8px 18px;
+  border-radius: 5px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink-soft);
+  transition: all .15s;
+}
+.period-btn.active {
+  background: var(--ink);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+  margin-bottom: 20px;
+}
+.kpi-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: var(--shadow-sm);
+  position: relative;
+  overflow: hidden;
+}
+.kpi-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 4px; height: 100%;
+  background: var(--accent);
+}
+.kpi-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1.2px;
+  color: var(--ink-soft);
+  text-transform: uppercase;
+}
+.kpi-value {
+  font-size: 36px;
+  font-weight: 800;
+  letter-spacing: -1.5px;
+  margin-top: 6px;
+  font-family: 'JetBrains Mono', monospace;
+}
+.kpi-detail {
+  font-size: 12px;
+  color: var(--ink-soft);
+  margin-top: 4px;
+}
+
+.charts-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+@media (min-width: 880px) {
+  .charts-grid { grid-template-columns: 1fr 1fr; }
+  .charts-grid .full { grid-column: 1 / -1; }
+}
+.chart-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: var(--shadow-sm);
+}
+.chart-title {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -.2px;
+  margin-bottom: 4px;
+}
+.chart-sub {
+  font-size: 12px;
+  color: var(--ink-soft);
+  margin-bottom: 16px;
+}
+.chart-canvas-wrap { position: relative; height: 280px; }
+
+/* ───────────── MODAL ───────────── */
+.modal-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(26,20,16,.6);
+  backdrop-filter: blur(4px);
+  z-index: 100;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.modal-backdrop.active { display: flex; }
+.modal {
+  background: var(--surface);
+  border-radius: 10px;
+  width: 100%;
+  max-width: 480px;
+  max-height: 90vh;
+  overflow: auto;
+  box-shadow: var(--shadow-lg);
+}
+.modal-header {
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--line-soft);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.modal-title { font-size: 16px; font-weight: 700; }
+.close-btn {
+  width: 32px; height: 32px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 6px;
+  color: var(--ink-soft);
+}
+.close-btn:hover { background: var(--line-soft); }
+.close-btn svg { width: 18px; height: 18px; }
+
+.modal-body { padding: 20px; }
+.modal-footer {
+  padding: 14px 20px;
+  border-top: 1px solid var(--line-soft);
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+/* Scanner */
+.video-wrap {
+  background: #000;
+  border-radius: 8px;
+  overflow: hidden;
+  position: relative;
+  aspect-ratio: 4/3;
+  margin-bottom: 14px;
+}
+#scanner-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.scanner-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.scanner-frame {
+  width: 70%;
+  aspect-ratio: 16/9;
+  border: 3px solid var(--accent);
+  border-radius: 8px;
+  position: relative;
+  animation: pulse-scan 1.5s ease-in-out infinite;
+}
+@keyframes pulse-scan {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(184,137,58,.6); }
+  50%      { box-shadow: 0 0 0 14px rgba(184,137,58,0); }
+}
+.scanner-message {
+  text-align: center;
+  font-size: 13px;
+  color: var(--ink-soft);
+  padding: 8px 0;
+}
+.scanner-error {
+  background: var(--warn-soft);
+  color: var(--warn);
+  padding: 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  margin-bottom: 12px;
+  display: none;
+}
+.scanner-error.show { display: block; }
+
+.usb-input-wrap {
+  margin-top: 12px;
+  padding: 12px;
+  background: var(--info-soft);
+  border-radius: 6px;
+  border: 1px dashed var(--info);
+}
+.usb-input-wrap label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  color: var(--info);
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.usb-input-wrap input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--info);
+  border-radius: 5px;
+  background: #fff;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+}
+.usb-input-wrap input:focus { outline: none; box-shadow: 0 0 0 3px rgba(21,101,192,.2); }
+.usb-hint { font-size: 11px; color: var(--info); margin-top: 6px; }
+
+/* Settings modal */
+.settings-row { margin-bottom: 14px; }
+.settings-row label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: .5px;
+  color: var(--ink-soft);
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.settings-row input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+}
+.settings-row input:focus { outline: none; border-color: var(--accent); }
+.settings-row .hint { font-size: 12px; color: var(--ink-soft); margin-top: 4px; }
+.settings-status {
+  padding: 10px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  margin-top: 10px;
+  display: none;
+}
+.settings-status.ok { display: block; background: var(--ok-soft); color: var(--ok); }
+.settings-status.err { display: block; background: var(--warn-soft); color: var(--warn); }
+
+/* Confirm dialog */
+.confirm-icon {
+  width: 56px; height: 56px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 14px;
+}
+.confirm-icon.warn { background: var(--warn-soft); color: var(--warn); }
+.confirm-icon.ok { background: var(--ok-soft); color: var(--ok); }
+.confirm-icon svg { width: 28px; height: 28px; }
+.confirm-title {
+  text-align: center;
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+.confirm-msg {
+  text-align: center;
+  font-size: 14px;
+  color: var(--ink-soft);
+  margin-bottom: 20px;
+}
+
+/* Toast */
+.toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(120%);
+  background: var(--ink);
+  color: #fff;
+  padding: 14px 22px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  box-shadow: var(--shadow-lg);
+  z-index: 200;
+  transition: transform .35s cubic-bezier(.34,1.56,.64,1);
+  display: flex; align-items: center; gap: 10px;
+  max-width: calc(100vw - 40px);
+}
+.toast.show { transform: translateX(-50%) translateY(0); }
+.toast.success { background: var(--ok); }
+.toast.error { background: var(--warn); }
+.toast svg { width: 20px; height: 20px; flex-shrink: 0; }
+
+/* Loading overlay */
+.loading {
+  position: fixed; inset: 0;
+  background: rgba(244,241,234,.85);
+  backdrop-filter: blur(2px);
+  display: none;
+  align-items: center; justify-content: center;
+  z-index: 150;
+  flex-direction: column;
+  gap: 14px;
+}
+.loading.active { display: flex; }
+.spinner {
+  width: 40px; height: 40px;
+  border: 3px solid var(--line);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin .8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-text { font-size: 13px; color: var(--ink-soft); font-weight: 500; }
+
+/* ───────────── RESPONSIVE ───────────── */
+@media (max-width: 600px) {
+  .app-header { padding: 12px 16px; }
+  .brand-title { font-size: 13px; }
+  .brand-sub { font-size: 10px; }
+  .tabs-nav { top: 60px; }
+  .tab-btn { font-size: 13px; padding: 12px 10px; min-width: 90px; }
+  .tab-btn span { display: none; }
+  .tab-btn svg { width: 22px; height: 22px; }
+  .page { padding: 18px 14px; }
+  .page-title { font-size: 19px; }
+  .scan-btn { padding: 18px 14px; gap: 14px; }
+  .scan-icon { width: 48px; height: 48px; }
+  .scan-icon svg { width: 24px; height: 24px; }
+  .scan-value { font-size: 15px; }
+  .counter-value { font-size: 44px; }
+  .data-table { font-size: 13px; }
+  .data-table th, .data-table td { padding: 10px 12px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════ HEADER ═══════════════════════ -->
+<header class="app-header">
+  <div class="brand">
+    <div class="brand-mark">EO</div>
+    <div>
+      <div class="brand-title">Monitor Efficienza Operatori</div>
+      <div class="brand-sub">Bollettini di Produzione</div>
+    </div>
+  </div>
+  <div class="header-actions">
+    <span class="status-dot" id="statusDot" title="Stato connessione"></span>
+    <button class="icon-btn" id="btnSettings" title="Impostazioni">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    </button>
+  </div>
+</header>
+
+<!-- ═══════════════════════ TABS ═══════════════════════ -->
+<nav class="tabs-nav">
+  <button class="tab-btn active" data-tab="inserimento">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 8v8M11 8v8M15 8v8M19 8v8"/></svg>
+    <span>Inserimento</span>
+  </button>
+  <button class="tab-btn" data-tab="riepilogo">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    <span>Riepilogo</span>
+  </button>
+  <button class="tab-btn" data-tab="dashboard">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
+    <span>Dashboard</span>
+  </button>
+</nav>
+
+<!-- ═══════════════════════ PAGINA: INSERIMENTO ═══════════════════════ -->
+<section class="page active" id="page-inserimento">
+  <h1 class="page-title">Inserimento Bollettini</h1>
+  <p class="page-sub">Scansiona in ordine: ① Operatore → ② Fase → ③ Ordine di Produzione</p>
+
+  <div class="scan-stack">
+    <button class="scan-btn" id="btn-operatore" data-step="operatore">
+      <div class="scan-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a8 8 0 0 1 16 0v1"/></svg>
+      </div>
+      <div class="scan-info">
+        <div class="scan-label">① Operatore</div>
+        <div class="scan-value placeholder" id="val-operatore">Tocca per scansionare</div>
+        <div class="scan-code" id="code-operatore"></div>
+      </div>
+      <div class="scan-status" id="status-operatore"></div>
+    </button>
+
+    <button class="scan-btn" id="btn-fase" data-step="fase">
+      <div class="scan-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="15" y2="17"/></svg>
+      </div>
+      <div class="scan-info">
+        <div class="scan-label">② Fase di Lavorazione</div>
+        <div class="scan-value placeholder" id="val-fase">Tocca per scansionare</div>
+        <div class="scan-code" id="code-fase"></div>
+      </div>
+      <div class="scan-status" id="status-fase"></div>
+    </button>
+
+    <button class="scan-btn primary" id="btn-op" data-step="op" disabled>
+      <div class="scan-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><line x1="7" y1="9" x2="7" y2="15"/><line x1="11" y1="9" x2="11" y2="15"/><line x1="15" y1="9" x2="15" y2="15"/><line x1="17" y1="9" x2="17" y2="15"/></svg>
+      </div>
+      <div class="scan-info">
+        <div class="scan-label">③ Ordine di Produzione</div>
+        <div class="scan-value placeholder" id="val-op">Compila prima i campi sopra</div>
+      </div>
+      <div class="scan-status" id="status-op"></div>
+    </button>
+  </div>
+
+  <div class="counter-card">
+    <div class="counter-info">
+      <div class="counter-label">OP Chiusi Oggi</div>
+      <div class="counter-value" id="counterOggi">0</div>
+      <div class="counter-detail" id="counterDetail">Nessuna scansione ancora</div>
+    </div>
+    <button class="reset-btn" id="btnReset" title="Annulla scansioni in corso">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+      Reset
+    </button>
+  </div>
+</section>
+
+<!-- ═══════════════════════ PAGINA: RIEPILOGO ═══════════════════════ -->
+<section class="page" id="page-riepilogo">
+  <h1 class="page-title">Riepilogo Bollettini</h1>
+  <p class="page-sub">Filtra, consulta ed esporta i dati registrati</p>
+
+  <div class="filter-bar">
+    <div class="filter-field">
+      <label>Dal</label>
+      <input type="date" id="filterDal">
+    </div>
+    <div class="filter-field">
+      <label>Al</label>
+      <input type="date" id="filterAl">
+    </div>
+    <div class="filter-field">
+      <label>Operatore</label>
+      <select id="filterOperatore"><option value="">Tutti</option></select>
+    </div>
+    <div class="filter-field">
+      <label>Fase</label>
+      <select id="filterFase"><option value="">Tutte</option></select>
+    </div>
+  </div>
+
+  <div class="toolbar-actions">
+    <button class="btn btn-primary" id="btnApplyFilter">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+      Applica filtri
+    </button>
+    <button class="btn btn-ghost" id="btnRefresh">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+      Aggiorna
+    </button>
+    <button class="btn btn-success" id="btnExport">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Esporta Excel
+    </button>
+  </div>
+
+  <div class="summary-stats">
+    <div class="stat-mini"><div class="l">Bollettini</div><div class="v" id="statTot">0</div></div>
+    <div class="stat-mini"><div class="l">Operatori</div><div class="v" id="statOp">0</div></div>
+    <div class="stat-mini"><div class="l">Fasi</div><div class="v" id="statFa">0</div></div>
+    <div class="stat-mini"><div class="l">OP Univoci</div><div class="v" id="statUn">0</div></div>
+  </div>
+
+  <div class="table-wrap">
+    <div class="table-scroll">
+      <table class="data-table" id="tableRiepilogo">
+        <thead>
+          <tr>
+            <th>Data</th>
+            <th>Ora</th>
+            <th>Operatore</th>
+            <th>Fase</th>
+            <th>OP</th>
+          </tr>
+        </thead>
+        <tbody id="tbodyRiepilogo"></tbody>
+      </table>
+    </div>
+    <div class="empty-state" id="emptyRiepilogo" style="display:none">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/></svg>
+      <h3>Nessun bollettino</h3>
+      <p>Non ci sono dati per i filtri selezionati</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════ PAGINA: DASHBOARD ═══════════════════════ -->
+<section class="page" id="page-dashboard">
+  <h1 class="page-title">Dashboard Direzione</h1>
+  <p class="page-sub">Indicatori di produttività e andamento</p>
+
+  <div class="period-selector" id="periodSelector">
+    <button class="period-btn active" data-period="oggi">Oggi</button>
+    <button class="period-btn" data-period="settimana">Settimana</button>
+    <button class="period-btn" data-period="mese">Mese</button>
+    <button class="period-btn" data-period="tutto">Sempre</button>
+  </div>
+
+  <div class="kpi-grid">
+    <div class="kpi-card">
+      <div class="kpi-label">Bollettini Chiusi</div>
+      <div class="kpi-value" id="kpiTotale">0</div>
+      <div class="kpi-detail" id="kpiTotaleDet">nel periodo</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Operatori Attivi</div>
+      <div class="kpi-value" id="kpiOperatori">0</div>
+      <div class="kpi-detail" id="kpiOperatoriDet">distinti nel periodo</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Fasi Coperte</div>
+      <div class="kpi-value" id="kpiFasi">0</div>
+      <div class="kpi-detail" id="kpiFasiDet">distinte nel periodo</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Media OP/Operatore</div>
+      <div class="kpi-value" id="kpiMedia">0</div>
+      <div class="kpi-detail">bollettini per operatore</div>
+    </div>
+  </div>
+
+  <div class="charts-grid">
+    <div class="chart-card">
+      <div class="chart-title">Classifica Operatori</div>
+      <div class="chart-sub">Top per numero di OP chiusi</div>
+      <div class="chart-canvas-wrap"><canvas id="chartOperatori"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Distribuzione per Fase</div>
+      <div class="chart-sub">OP per fase di lavorazione</div>
+      <div class="chart-canvas-wrap"><canvas id="chartFasi"></canvas></div>
+    </div>
+    <div class="chart-card full">
+      <div class="chart-title">Andamento Giornaliero</div>
+      <div class="chart-sub">OP chiusi per giorno</div>
+      <div class="chart-canvas-wrap"><canvas id="chartTrend"></canvas></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════ MODAL: SCANNER ═══════════════════════ -->
+<div class="modal-backdrop" id="modalScanner">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="scannerTitle">Scansiona barcode</div>
+      <button class="close-btn" data-close="modalScanner"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="scanner-error" id="scannerError"></div>
+      <div class="video-wrap">
+        <video id="scanner-video" autoplay playsinline muted></video>
+        <div class="scanner-overlay"><div class="scanner-frame"></div></div>
+      </div>
+      <div class="scanner-message" id="scannerMessage">Inquadra il barcode oppure usa lo scanner USB</div>
+      <div class="usb-input-wrap">
+        <label>⌨️ Scanner USB / Inserimento manuale</label>
+        <input type="text" id="usbInput" placeholder="Il barcode appare qui..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+        <div class="usb-hint">Lo scanner USB scrive automaticamente. Premi Invio per confermare.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════ MODAL: IMPOSTAZIONI ═══════════════════════ -->
+<div class="modal-backdrop" id="modalSettings">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Impostazioni</div>
+      <button class="close-btn" data-close="modalSettings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="settings-row">
+        <label>URL Backend (Apps Script)</label>
+        <input type="text" id="settingsUrl" placeholder="https://script.google.com/macros/s/.../exec">
+        <div class="hint">Distribuisci il tuo Apps Script come "App web" e incolla qui l'URL .../exec</div>
+      </div>
+      <div class="settings-status" id="settingsStatus"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" id="btnTestConnection">Testa connessione</button>
+      <button class="btn btn-primary" id="btnSaveSettings">Salva</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════ MODAL: CONFERMA / ALERT ═══════════════════════ -->
+<div class="modal-backdrop" id="modalConfirm">
+  <div class="modal">
+    <div class="modal-body" style="padding-top: 30px">
+      <div class="confirm-icon" id="confirmIcon"></div>
+      <div class="confirm-title" id="confirmTitle"></div>
+      <div class="confirm-msg" id="confirmMsg"></div>
+    </div>
+    <div class="modal-footer" style="justify-content: center">
+      <button class="btn btn-primary" id="btnConfirmOk">OK</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════ TOAST + LOADING ═══════════════════════ -->
+<div class="toast" id="toast"><span id="toastIcon"></span><span id="toastText"></span></div>
+<div class="loading" id="loadingOverlay">
+  <div class="spinner"></div>
+  <div class="loading-text" id="loadingText">Caricamento...</div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════════
+// CONFIGURAZIONE & STATO
+// ═══════════════════════════════════════════════════════════════════════════
+const STORAGE_KEY = 'efficienza_app_url';
+let backendUrl = localStorage.getItem(STORAGE_KEY) || '';
+
+const state = {
+  anagrafica: { operatori: [], fasi: [] },
+  bollettini: [],
+  scan: { operatore: null, fase: null },
+  currentScanStep: null,
+  currentPeriod: 'oggi'
+};
+
+let codeReader = null;
+let charts = { operatori: null, fasi: null, trend: null };
+
+// ═══════════════════════════════════════════════════════════════════════════
+// UTILITIES
+// ═══════════════════════════════════════════════════════════════════════════
+const $ = (s) => document.querySelector(s);
+const $$ = (s) => document.querySelectorAll(s);
+
+function showLoading(text) {
+  $('#loadingText').textContent = text || 'Caricamento...';
+  $('#loadingOverlay').classList.add('active');
+}
+function hideLoading() { $('#loadingOverlay').classList.remove('active'); }
+
+function toast(msg, type) {
+  const el = $('#toast');
+  el.className = 'toast ' + (type || '');
+  const icons = {
+    success: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>',
+    error:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',
+    info:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="8"/></svg>'
+  };
+  $('#toastIcon').innerHTML = icons[type] || icons.info;
+  $('#toastText').textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => el.classList.remove('show'), 3500);
+}
+
+function showAlert(title, msg, isError) {
+  $('#confirmTitle').textContent = title;
+  $('#confirmMsg').textContent = msg;
+  const icon = $('#confirmIcon');
+  if (isError) {
+    icon.className = 'confirm-icon warn';
+    icon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
+  } else {
+    icon.className = 'confirm-icon ok';
+    icon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>';
+  }
+  $('#modalConfirm').classList.add('active');
+}
+$('#btnConfirmOk').addEventListener('click', () => $('#modalConfirm').classList.remove('active'));
+
+function setStatusDot(state) {
+  const dot = $('#statusDot');
+  dot.className = 'status-dot' + (state ? ' ' + state : '');
+}
+
+function fmtDate(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return y + '-' + m + '-' + day;
+}
+function fmtDateIT(s) {
+  if (!s) return '';
+  const [y, m, d] = s.split('-');
+  return d + '/' + m + '/' + y;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// API CALLS
+// ═══════════════════════════════════════════════════════════════════════════
+async function apiGet(action, params) {
+  if (!backendUrl) throw new Error('URL backend non configurato. Apri ⚙️ Impostazioni.');
+  const url = new URL(backendUrl);
+  url.searchParams.set('action', action);
+  if (params) for (const k in params) url.searchParams.set(k, params[k]);
+  const res = await fetch(url.toString(), { method: 'GET' });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  return await res.json();
+}
+
+async function apiPost(payload) {
+  if (!backendUrl) throw new Error('URL backend non configurato. Apri ⚙️ Impostazioni.');
+  const res = await fetch(backendUrl, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' }
+  });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  return await res.json();
+}
+
+async function caricaAnagrafica() {
+  try {
+    const r = await apiGet('anagrafica');
+    if (!r.ok) throw new Error(r.error || 'Errore caricamento anagrafica');
+    state.anagrafica.operatori = r.operatori || [];
+    state.anagrafica.fasi = r.fasi || [];
+    setStatusDot('ok');
+    return true;
+  } catch (e) {
+    setStatusDot('err');
+    console.error('Anagrafica:', e);
+    return false;
+  }
+}
+
+async function caricaBollettini() {
+  try {
+    const r = await apiGet('bollettini');
+    if (!r.ok) throw new Error(r.error || 'Errore caricamento bollettini');
+    state.bollettini = r.bollettini || [];
+    setStatusDot('ok');
+    return true;
+  } catch (e) {
+    setStatusDot('err');
+    console.error('Bollettini:', e);
+    return false;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TABS
+// ═══════════════════════════════════════════════════════════════════════════
+$$('.tab-btn').forEach(b => {
+  b.addEventListener('click', () => {
+    const t = b.dataset.tab;
+    $$('.tab-btn').forEach(x => x.classList.toggle('active', x.dataset.tab === t));
+    $$('.page').forEach(p => p.classList.toggle('active', p.id === 'page-' + t));
+    if (t === 'riepilogo') refreshRiepilogo();
+    if (t === 'dashboard') refreshDashboard();
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SCANNER
+// ═══════════════════════════════════════════════════════════════════════════
+$('#btn-operatore').addEventListener('click', () => {
+  if ($('#btn-operatore').classList.contains('locked')) return;
+  apriScanner('operatore');
+});
+$('#btn-fase').addEventListener('click', () => {
+  if ($('#btn-fase').classList.contains('locked')) return;
+  apriScanner('fase');
+});
+$('#btn-op').addEventListener('click', () => {
+  if ($('#btn-op').disabled) return;
+  apriScanner('op');
+});
+
+async function apriScanner(step) {
+  state.currentScanStep = step;
+  const titles = {
+    operatore: 'Scansiona Barcode Operatore',
+    fase:      'Scansiona Barcode Fase',
+    op:        'Scansiona Barcode Ordine di Produzione'
+  };
+  $('#scannerTitle').textContent = titles[step];
+  $('#scannerError').classList.remove('show');
+  $('#usbInput').value = '';
+  $('#modalScanner').classList.add('active');
+
+  // Focus sull'input USB (per scanner USB e tastiera)
+  setTimeout(() => $('#usbInput').focus(), 100);
+
+  // Avvia webcam
+  await avviaWebcam();
+}
+
+async function avviaWebcam() {
+  try {
+    if (!window.ZXing) throw new Error('Libreria scanner non caricata');
+    if (codeReader) {
+      try { codeReader.reset(); } catch (e) {}
+    }
+    codeReader = new ZXing.BrowserMultiFormatReader();
+    const devices = await codeReader.listVideoInputDevices();
+    if (!devices || devices.length === 0) throw new Error('Nessuna fotocamera trovata');
+    // Preferisci camera posteriore se esiste
+    const back = devices.find(d => /back|rear|environment/i.test(d.label));
+    const deviceId = back ? back.deviceId : devices[0].deviceId;
+
+    codeReader.decodeFromVideoDevice(deviceId, 'scanner-video', (result, err) => {
+      if (result) {
+        const code = result.getText();
+        chiudiScanner();
+        gestisciScansione(code);
+      }
+    });
+    $('#scannerMessage').textContent = 'Inquadra il barcode oppure usa lo scanner USB';
+  } catch (e) {
+    console.warn('Webcam non disponibile:', e);
+    const errBox = $('#scannerError');
+    errBox.textContent = '📷 Fotocamera non disponibile (' + (e.message || 'errore') + '). Usa lo scanner USB o l\'inserimento manuale qui sotto.';
+    errBox.classList.add('show');
+  }
+}
+
+function chiudiScanner() {
+  $('#modalScanner').classList.remove('active');
+  if (codeReader) {
+    try { codeReader.reset(); } catch (e) {}
+  }
+}
+
+// Input USB / manuale: invio = conferma
+$('#usbInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    const code = $('#usbInput').value.trim();
+    if (!code) return;
+    chiudiScanner();
+    gestisciScansione(code);
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LOGICA SCANSIONE
+// ═══════════════════════════════════════════════════════════════════════════
+function trovaInAnagrafica(barcode, lista) {
+  const b = String(barcode).trim();
+  // Cerca per barcode esatto, oppure per id (utile per test e quando il barcode è uguale all'id)
+  return lista.find(x => x.barcode === b) || lista.find(x => x.id === b);
+}
+
+function gestisciScansione(barcode) {
+  const step = state.currentScanStep;
+
+  if (step === 'operatore') {
+    const trovato = trovaInAnagrafica(barcode, state.anagrafica.operatori);
+    if (!trovato) {
+      toast('Operatore non trovato per il barcode "' + barcode + '"', 'error');
+      return;
+    }
+    state.scan.operatore = trovato;
+    aggiornaUI('operatore');
+    bloccaBottone('operatore');
+    abilitaOPSeProto();
+  }
+  else if (step === 'fase') {
+    const trovato = trovaInAnagrafica(barcode, state.anagrafica.fasi);
+    if (!trovato) {
+      toast('Fase non trovata per il barcode "' + barcode + '"', 'error');
+      return;
+    }
+    state.scan.fase = trovato;
+    aggiornaUI('fase');
+    bloccaBottone('fase');
+    abilitaOPSeProto();
+  }
+  else if (step === 'op') {
+    if (!state.scan.operatore || !state.scan.fase) {
+      toast('Compila prima Operatore e Fase', 'error');
+      return;
+    }
+    salvaBollettino(barcode);
+  }
+}
+
+function aggiornaUI(step) {
+  if (step === 'operatore' && state.scan.operatore) {
+    const o = state.scan.operatore;
+    $('#val-operatore').textContent = o.descrizione;
+    $('#val-operatore').classList.remove('placeholder');
+    $('#code-operatore').textContent = o.id + ' · ' + o.barcode;
+  }
+  if (step === 'fase' && state.scan.fase) {
+    const f = state.scan.fase;
+    $('#val-fase').textContent = f.descrizione;
+    $('#val-fase').classList.remove('placeholder');
+    $('#code-fase').textContent = f.id + ' · ' + f.barcode;
+  }
+}
+
+function bloccaBottone(step) {
+  const btn = $('#btn-' + step);
+  btn.classList.add('filled', 'locked');
+  $('#status-' + step).innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>';
+}
+
+function abilitaOPSeProto() {
+  if (state.scan.operatore && state.scan.fase) {
+    $('#btn-op').disabled = false;
+    $('#val-op').textContent = 'Tocca per scansionare l\'OP';
+  }
+}
+
+async function salvaBollettino(opBarcode) {
+  showLoading('Salvataggio...');
+  try {
+    const payload = {
+      operatore_id:      state.scan.operatore.id,
+      operatore_nome:    state.scan.operatore.descrizione,
+      fase_id:           state.scan.fase.id,
+      fase_descrizione:  state.scan.fase.descrizione,
+      op_barcode:        String(opBarcode).trim()
+    };
+    const r = await apiPost(payload);
+    hideLoading();
+
+    if (r.duplicato) {
+      showAlert('OP già registrato', r.messaggio || 'Questo OP è già stato registrato oggi su questa fase.', true);
+      return;
+    }
+    if (!r.ok) {
+      showAlert('Errore', r.error || 'Errore durante il salvataggio', true);
+      return;
+    }
+
+    // Successo: aggiorna lista locale
+    const ora = new Date();
+    state.bollettini.push({
+      timestamp:        ora.toISOString(),
+      data:             fmtDate(ora),
+      ora:              ora.toTimeString().split(' ')[0],
+      operatore_id:     payload.operatore_id,
+      operatore_nome:   payload.operatore_nome,
+      fase_id:          payload.fase_id,
+      fase_descrizione: payload.fase_descrizione,
+      op_barcode:       payload.op_barcode
+    });
+
+    toast('OP "' + opBarcode + '" registrato', 'success');
+    aggiornaContatoreOggi();
+    resetForm();
+  } catch (e) {
+    hideLoading();
+    showAlert('Errore di rete', e.message || 'Impossibile salvare', true);
+  }
+}
+
+function resetForm() {
+  state.scan.operatore = null;
+  state.scan.fase = null;
+  state.currentScanStep = null;
+
+  ['operatore','fase'].forEach(step => {
+    const btn = $('#btn-' + step);
+    btn.classList.remove('filled', 'locked');
+    $('#status-' + step).innerHTML = '';
+    $('#val-' + step).textContent = 'Tocca per scansionare';
+    $('#val-' + step).classList.add('placeholder');
+    $('#code-' + step).textContent = '';
+  });
+
+  $('#btn-op').disabled = true;
+  $('#val-op').textContent = 'Compila prima i campi sopra';
+}
+
+$('#btnReset').addEventListener('click', resetForm);
+
+function aggiornaContatoreOggi() {
+  const oggi = fmtDate(new Date());
+  const nostri = state.bollettini.filter(b => b.data === oggi);
+  $('#counterOggi').textContent = nostri.length;
+  if (nostri.length === 0) {
+    $('#counterDetail').textContent = 'Nessuna scansione ancora';
+  } else {
+    const ultimoOra = nostri[nostri.length - 1].ora || '';
+    $('#counterDetail').textContent = 'Ultimo: ' + ultimoOra;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CHIUSURA MODALI
+// ═══════════════════════════════════════════════════════════════════════════
+$$('[data-close]').forEach(b => {
+  b.addEventListener('click', () => {
+    const id = b.dataset.close;
+    $('#' + id).classList.remove('active');
+    if (id === 'modalScanner' && codeReader) {
+      try { codeReader.reset(); } catch(e) {}
+    }
+  });
+});
+$$('.modal-backdrop').forEach(bg => {
+  bg.addEventListener('click', (e) => {
+    if (e.target === bg) {
+      bg.classList.remove('active');
+      if (bg.id === 'modalScanner' && codeReader) {
+        try { codeReader.reset(); } catch(e) {}
+      }
+    }
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// IMPOSTAZIONI
+// ═══════════════════════════════════════════════════════════════════════════
+$('#btnSettings').addEventListener('click', () => {
+  $('#settingsUrl').value = backendUrl;
+  $('#settingsStatus').className = 'settings-status';
+  $('#settingsStatus').textContent = '';
+  $('#modalSettings').classList.add('active');
+});
+
+$('#btnSaveSettings').addEventListener('click', async () => {
+  const url = $('#settingsUrl').value.trim();
+  if (!url) {
+    $('#settingsStatus').className = 'settings-status err';
+    $('#settingsStatus').textContent = 'Inserisci un URL';
+    return;
+  }
+  backendUrl = url;
+  localStorage.setItem(STORAGE_KEY, url);
+  $('#settingsStatus').className = 'settings-status ok';
+  $('#settingsStatus').textContent = 'URL salvato. Carico l\'anagrafica...';
+
+  const ok = await caricaAnagrafica();
+  if (ok) {
+    await caricaBollettini();
+    aggiornaContatoreOggi();
+    populateFilters();
+    $('#settingsStatus').textContent = '✓ Connessione OK · ' + state.anagrafica.operatori.length + ' operatori, ' + state.anagrafica.fasi.length + ' fasi caricate';
+    setTimeout(() => $('#modalSettings').classList.remove('active'), 1500);
+  } else {
+    $('#settingsStatus').className = 'settings-status err';
+    $('#settingsStatus').textContent = '✗ Connessione fallita. Verifica URL e che lo script sia distribuito come "Chiunque".';
+  }
+});
+
+$('#btnTestConnection').addEventListener('click', async () => {
+  const url = $('#settingsUrl').value.trim();
+  if (!url) {
+    $('#settingsStatus').className = 'settings-status err';
+    $('#settingsStatus').textContent = 'Inserisci un URL';
+    return;
+  }
+  $('#settingsStatus').className = 'settings-status';
+  $('#settingsStatus').textContent = 'Test in corso...';
+  try {
+    const u = new URL(url);
+    u.searchParams.set('action', 'ping');
+    const r = await fetch(u.toString());
+    const j = await r.json();
+    if (j.ok) {
+      $('#settingsStatus').className = 'settings-status ok';
+      $('#settingsStatus').textContent = '✓ ' + (j.messaggio || 'Backend online');
+    } else {
+      $('#settingsStatus').className = 'settings-status err';
+      $('#settingsStatus').textContent = '✗ ' + (j.error || 'Errore');
+    }
+  } catch (e) {
+    $('#settingsStatus').className = 'settings-status err';
+    $('#settingsStatus').textContent = '✗ ' + e.message;
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// RIEPILOGO
+// ═══════════════════════════════════════════════════════════════════════════
+function populateFilters() {
+  const opSel = $('#filterOperatore');
+  const faSel = $('#filterFase');
+  opSel.innerHTML = '<option value="">Tutti</option>';
+  faSel.innerHTML = '<option value="">Tutte</option>';
+  state.anagrafica.operatori.forEach(o => {
+    opSel.insertAdjacentHTML('beforeend', '<option value="' + o.id + '">' + o.descrizione + '</option>');
+  });
+  state.anagrafica.fasi.forEach(f => {
+    faSel.insertAdjacentHTML('beforeend', '<option value="' + f.id + '">' + (f.id + ' — ' + f.descrizione) + '</option>');
+  });
+}
+
+function getBollettiniFiltrati() {
+  let r = state.bollettini.slice();
+  const dal = $('#filterDal').value;
+  const al  = $('#filterAl').value;
+  const op  = $('#filterOperatore').value;
+  const fa  = $('#filterFase').value;
+  if (dal) r = r.filter(b => b.data >= dal);
+  if (al)  r = r.filter(b => b.data <= al);
+  if (op)  r = r.filter(b => b.operatore_id === op);
+  if (fa)  r = r.filter(b => b.fase_id === fa);
+  // Ordine cronologico decrescente
+  r.sort((a, b) => (b.timestamp || '').localeCompare(a.timestamp || ''));
+  return r;
+}
+
+function refreshRiepilogo() {
+  const data = getBollettiniFiltrati();
+  const tb = $('#tbodyRiepilogo');
+  tb.innerHTML = '';
+  if (data.length === 0) {
+    $('#emptyRiepilogo').style.display = 'block';
+    $('#tableRiepilogo').style.display = 'none';
+  } else {
+    $('#emptyRiepilogo').style.display = 'none';
+    $('#tableRiepilogo').style.display = 'table';
+    const html = data.map(b => '<tr>'
+      + '<td>' + fmtDateIT(b.data) + '</td>'
+      + '<td class="mono">' + (b.ora || '').slice(0,5) + '</td>'
+      + '<td><span class="badge">' + b.operatore_id + '</span> ' + b.operatore_nome + '</td>'
+      + '<td><span class="badge">' + b.fase_id + '</span> ' + b.fase_descrizione + '</td>'
+      + '<td class="mono">' + b.op_barcode + '</td>'
+      + '</tr>').join('');
+    tb.innerHTML = html;
+  }
+
+  $('#statTot').textContent = data.length;
+  $('#statOp').textContent = new Set(data.map(b => b.operatore_id)).size;
+  $('#statFa').textContent = new Set(data.map(b => b.fase_id)).size;
+  $('#statUn').textContent = new Set(data.map(b => b.op_barcode)).size;
+}
+
+$('#btnApplyFilter').addEventListener('click', refreshRiepilogo);
+$('#btnRefresh').addEventListener('click', async () => {
+  showLoading('Aggiornamento...');
+  await caricaBollettini();
+  hideLoading();
+  refreshRiepilogo();
+  refreshDashboard();
+  aggiornaContatoreOggi();
+  toast('Dati aggiornati', 'success');
+});
+
+// Export Excel
+$('#btnExport').addEventListener('click', () => {
+  const data = getBollettiniFiltrati();
+  if (data.length === 0) {
+    toast('Nessun dato da esportare', 'error');
+    return;
+  }
+  const rows = data.map(b => ({
+    'Data':            fmtDateIT(b.data),
+    'Ora':             b.ora || '',
+    'ID Operatore':    b.operatore_id,
+    'Operatore':       b.operatore_nome,
+    'ID Fase':         b.fase_id,
+    'Fase':            b.fase_descrizione,
+    'OP':              b.op_barcode
+  }));
+  const ws = XLSX.utils.json_to_sheet(rows);
+  // larghezza colonne
+  ws['!cols'] = [{wch:12},{wch:10},{wch:14},{wch:28},{wch:10},{wch:40},{wch:22}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Bollettini');
+  const oggi = fmtDate(new Date()).replace(/-/g,'');
+  XLSX.writeFile(wb, 'Bollettini_Chiusi_' + oggi + '.xlsx');
+  toast('Export scaricato', 'success');
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// DASHBOARD
+// ═══════════════════════════════════════════════════════════════════════════
+$$('#periodSelector .period-btn').forEach(b => {
+  b.addEventListener('click', () => {
+    $$('#periodSelector .period-btn').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    state.currentPeriod = b.dataset.period;
+    refreshDashboard();
+  });
+});
+
+function getBollettiniDashboard() {
+  const oggi = new Date();
+  let dal = null;
+  if (state.currentPeriod === 'oggi') dal = fmtDate(oggi);
+  else if (state.currentPeriod === 'settimana') {
+    const d = new Date(oggi);
+    d.setDate(d.getDate() - 6);
+    dal = fmtDate(d);
+  } else if (state.currentPeriod === 'mese') {
+    const d = new Date(oggi);
+    d.setDate(d.getDate() - 29);
+    dal = fmtDate(d);
+  }
+  let r = state.bollettini.slice();
+  if (dal) r = r.filter(b => b.data >= dal);
+  return r;
+}
+
+function refreshDashboard() {
+  const data = getBollettiniDashboard();
+
+  // KPI
+  $('#kpiTotale').textContent = data.length;
+  const operatori = new Set(data.map(b => b.operatore_id));
+  const fasi = new Set(data.map(b => b.fase_id));
+  $('#kpiOperatori').textContent = operatori.size;
+  $('#kpiFasi').textContent = fasi.size;
+  const media = operatori.size > 0 ? (data.length / operatori.size).toFixed(1) : '0';
+  $('#kpiMedia').textContent = media;
+
+  // Operatori
+  const byOp = {};
+  data.forEach(b => {
+    const k = b.operatore_nome;
+    byOp[k] = (byOp[k] || 0) + 1;
+  });
+  const opEntries = Object.entries(byOp).sort((a,b) => b[1] - a[1]).slice(0, 10);
+
+  // Fasi
+  const byFa = {};
+  data.forEach(b => {
+    const k = b.fase_id + ' — ' + b.fase_descrizione.substring(0, 30);
+    byFa[k] = (byFa[k] || 0) + 1;
+  });
+  const faEntries = Object.entries(byFa).sort((a,b) => b[1] - a[1]).slice(0, 10);
+
+  // Trend giornaliero
+  const byDay = {};
+  data.forEach(b => { byDay[b.data] = (byDay[b.data] || 0) + 1; });
+  const trendDays = Object.keys(byDay).sort();
+  const trendVals = trendDays.map(d => byDay[d]);
+
+  drawChartOperatori(opEntries.map(e => e[0]), opEntries.map(e => e[1]));
+  drawChartFasi(faEntries.map(e => e[0]), faEntries.map(e => e[1]));
+  drawChartTrend(trendDays.map(fmtDateIT), trendVals);
+}
+
+function chartBaseOpts() {
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: '#1a1410',
+        titleFont: { family: 'Outfit', size: 13, weight: '600' },
+        bodyFont:  { family: 'Outfit', size: 12 },
+        padding: 10,
+        cornerRadius: 6
+      }
+    },
+    scales: {
+      x: { ticks: { font: { family: 'Outfit', size: 11 }, color: '#5a534d' }, grid: { display: false } },
+      y: { ticks: { font: { family: 'Outfit', size: 11 }, color: '#5a534d', precision: 0 }, grid: { color: '#ede8de' }, beginAtZero: true }
+    }
+  };
+}
+
+function drawChartOperatori(labels, values) {
+  if (charts.operatori) charts.operatori.destroy();
+  const ctx = document.getElementById('chartOperatori').getContext('2d');
+  charts.operatori = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'OP chiusi',
+        data: values,
+        backgroundColor: '#b8893a',
+        borderRadius: 4,
+        maxBarThickness: 32
+      }]
+    },
+    options: { ...chartBaseOpts(), indexAxis: 'y' }
+  });
+}
+
+function drawChartFasi(labels, values) {
+  if (charts.fasi) charts.fasi.destroy();
+  const ctx = document.getElementById('chartFasi').getContext('2d');
+  // Palette ambra/marrone
+  const colors = ['#b8893a','#8a6628','#d4a05a','#6e4f1f','#e8c08a','#a47538','#cd9750','#5d4419','#dcb47b','#7d5d2c'];
+  charts.fasi = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets: [{ data: values, backgroundColor: colors.slice(0, labels.length), borderWidth: 2, borderColor: '#fff' }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: 'right',
+          labels: { font: { family: 'Outfit', size: 11 }, color: '#1a1410', boxWidth: 12, boxHeight: 12, padding: 8 }
+        },
+        tooltip: { backgroundColor: '#1a1410', padding: 10, cornerRadius: 6 }
+      }
+    }
+  });
+}
+
+function drawChartTrend(labels, values) {
+  if (charts.trend) charts.trend.destroy();
+  const ctx = document.getElementById('chartTrend').getContext('2d');
+  charts.trend = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'OP chiusi',
+        data: values,
+        borderColor: '#1a1410',
+        backgroundColor: 'rgba(184,137,58,0.15)',
+        borderWidth: 2,
+        fill: true,
+        tension: 0.3,
+        pointBackgroundColor: '#b8893a',
+        pointBorderColor: '#1a1410',
+        pointRadius: 4,
+        pointHoverRadius: 6
+      }]
+    },
+    options: chartBaseOpts()
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// AVVIO
+// ═══════════════════════════════════════════════════════════════════════════
+async function init() {
+  // Default filtri data
+  const oggi = fmtDate(new Date());
+  const settimana = new Date();
+  settimana.setDate(settimana.getDate() - 7);
+  $('#filterDal').value = fmtDate(settimana);
+  $('#filterAl').value = oggi;
+
+  if (!backendUrl) {
+    setStatusDot('err');
+    setTimeout(() => {
+      $('#settingsUrl').value = '';
+      $('#settingsStatus').className = 'settings-status err';
+      $('#settingsStatus').textContent = 'Configura l\'URL del backend per iniziare.';
+      $('#modalSettings').classList.add('active');
+    }, 400);
+    return;
+  }
+
+  showLoading('Caricamento anagrafica...');
+  const ok1 = await caricaAnagrafica();
+  if (ok1) await caricaBollettini();
+  hideLoading();
+
+  if (ok1) {
+    populateFilters();
+    aggiornaContatoreOggi();
+  } else {
+    showAlert('Connessione fallita', 'Impossibile contattare il backend. Apri ⚙️ Impostazioni e verifica l\'URL.', true);
+  }
+}
+
+init();
+</script>
+
+</body>
+</html>
