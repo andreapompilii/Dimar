@@ -735,6 +735,142 @@ input, select { font-family: inherit; font-size: inherit; color: inherit; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .loading-text { font-size: 13px; color: var(--ink-soft); font-weight: 500; }
 
+/* ───────────── LOGIN SCREEN ───────────── */
+.login-overlay {
+  position: fixed;
+  inset: 0;
+  background: linear-gradient(135deg, #1a1410 0%, #2a2218 100%);
+  z-index: 300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.login-overlay.hidden { display: none; }
+.login-card {
+  background: var(--surface);
+  border-radius: 12px;
+  padding: 36px 32px;
+  width: 100%;
+  max-width: 380px;
+  box-shadow: 0 20px 60px rgba(0,0,0,.4);
+  text-align: center;
+}
+.login-mark {
+  width: 56px;
+  height: 56px;
+  background: var(--accent);
+  color: var(--ink);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 22px;
+  letter-spacing: -1.5px;
+  margin: 0 auto 16px;
+}
+.login-title {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -.3px;
+  margin-bottom: 4px;
+}
+.login-subtitle {
+  font-size: 13px;
+  color: var(--ink-soft);
+  margin-bottom: 24px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  font-weight: 500;
+}
+.login-input-wrap {
+  position: relative;
+  margin-bottom: 12px;
+}
+.login-input {
+  width: 100%;
+  padding: 14px 44px 14px 14px;
+  border: 2px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+  font-size: 16px;
+  font-family: 'JetBrains Mono', monospace;
+  letter-spacing: 1px;
+  text-align: center;
+  transition: border-color .15s;
+}
+.login-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.login-toggle {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  color: var(--ink-soft);
+}
+.login-toggle:hover { background: var(--line-soft); }
+.login-toggle svg { width: 18px; height: 18px; }
+.login-btn {
+  width: 100%;
+  padding: 14px;
+  background: var(--ink);
+  color: var(--accent);
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  transition: background .15s;
+  margin-top: 4px;
+}
+.login-btn:hover { background: #2a221c; }
+.login-btn:disabled { opacity: .5; cursor: not-allowed; }
+.login-error {
+  background: var(--warn-soft);
+  color: var(--warn);
+  padding: 10px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  margin-bottom: 12px;
+  display: none;
+}
+.login-error.show { display: block; }
+.login-footer {
+  margin-top: 22px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line-soft);
+  font-size: 11px;
+  color: var(--ink-soft);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+/* Header logout button + role pill */
+.role-pill {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: rgba(184,137,58,.2);
+  color: var(--accent);
+  margin-right: 6px;
+}
+.role-pill.direzione {
+  background: rgba(184,137,58,.85);
+  color: var(--ink);
+}
+
 /* ───────────── RESPONSIVE ───────────── */
 @media (max-width: 600px) {
   .app-header { padding: 12px 16px; }
@@ -768,7 +904,11 @@ input, select { font-family: inherit; font-size: inherit; color: inherit; }
     </div>
   </div>
   <div class="header-actions">
+    <span class="role-pill" id="rolePill" style="display:none">Operatore</span>
     <span class="status-dot" id="statusDot" title="Stato connessione"></span>
+    <button class="icon-btn" id="btnLogout" title="Esci" style="display:none">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+    </button>
     <button class="icon-btn" id="btnSettings" title="Impostazioni">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
     </button>
@@ -1028,6 +1168,48 @@ input, select { font-family: inherit; font-size: inherit; color: inherit; }
   </div>
 </div>
 
+<!-- ═══════════════════════ LOGIN SCREEN ═══════════════════════ -->
+<div class="login-overlay" id="loginOverlay">
+  <div class="login-card">
+    <div class="login-mark">EO</div>
+    <div class="login-title" id="loginTitle">Accedi</div>
+    <div class="login-subtitle" id="loginSubtitle">Inserisci la tua password</div>
+    <div class="login-error" id="loginError"></div>
+    <div class="login-input-wrap">
+      <input type="password" class="login-input" id="loginPassword" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="••••••••">
+      <button class="login-toggle" id="loginToggle" type="button" title="Mostra/nascondi">
+        <svg id="iconEyeShow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        <svg id="iconEyeHide" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+      </button>
+    </div>
+    <button class="login-btn" id="loginBtn">Entra</button>
+    <div class="login-footer">Monitor Efficienza Operatori</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════ MODAL: UPGRADE DIREZIONE ═══════════════════════ -->
+<div class="modal-backdrop" id="modalUpgrade">
+  <div class="modal" style="max-width: 380px">
+    <div class="modal-header">
+      <div class="modal-title">🔒 Area Direzione</div>
+      <button class="close-btn" data-close="modalUpgrade"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:14px; color:var(--ink-soft); margin-bottom:14px">
+        Questa sezione è riservata. Inserisci la password della Direzione per accedere.
+      </p>
+      <div class="login-error" id="upgradeError"></div>
+      <div class="login-input-wrap">
+        <input type="password" class="login-input" id="upgradePassword" autocomplete="off" placeholder="••••••••">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" data-close="modalUpgrade">Annulla</button>
+      <button class="btn btn-primary" id="btnUpgradeConfirm">Sblocca</button>
+    </div>
+  </div>
+</div>
+
 <!-- ═══════════════════════ TOAST + LOADING ═══════════════════════ -->
 <div class="toast" id="toast"><span id="toastIcon"></span><span id="toastText"></span></div>
 <div class="loading" id="loadingOverlay">
@@ -1039,15 +1221,24 @@ input, select { font-family: inherit; font-size: inherit; color: inherit; }
 // ═══════════════════════════════════════════════════════════════════════════
 // CONFIGURAZIONE & STATO
 // ═══════════════════════════════════════════════════════════════════════════
+const DEFAULT_BACKEND_URL = 'https://script.google.com/macros/s/AKfycbwSSX040CfKQtvwXhJ6M-UQ9uXCKO2wB_X1F7iM0YdZNham5Wqsu0ryROiIuPLn1TVjvA/exec';
+
+// Hash SHA-256 delle password — modifica questi se vuoi cambiare le password
+// (usa un tool online tipo "sha256 calculator" e incolla qui il risultato in lowercase)
+const HASH_OPERATORE = 'bed2ef25a3c07d7e9a978294bd1b6026fb13b78e94da9c2315af3743a2671b0c';
+const HASH_DIREZIONE = '1bc486ea4e7e3b56bd8e158c64d3d8472861bedcce5abf11bca85c0650d3c5e3';
+
 const STORAGE_KEY = 'efficienza_app_url';
-let backendUrl = localStorage.getItem(STORAGE_KEY) || '';
+const ROLE_KEY = 'efficienza_app_role';
+let backendUrl = localStorage.getItem(STORAGE_KEY) || DEFAULT_BACKEND_URL;
 
 const state = {
   anagrafica: { operatori: [], fasi: [] },
   bollettini: [],
   scan: { operatore: null, fase: null },
   currentScanStep: null,
-  currentPeriod: 'oggi'
+  currentPeriod: 'oggi',
+  role: sessionStorage.getItem(ROLE_KEY) || null  // 'operatore' | 'direzione' | null
 };
 
 let codeReader = null;
@@ -1113,6 +1304,135 @@ function fmtDateIT(s) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// AUTENTICAZIONE
+// ═══════════════════════════════════════════════════════════════════════════
+async function sha256(text) {
+  const enc = new TextEncoder().encode(text);
+  const buf = await crypto.subtle.digest('SHA-256', enc);
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function verificaPassword(input) {
+  const h = await sha256(input);
+  if (h === HASH_DIREZIONE) return 'direzione';
+  if (h === HASH_OPERATORE) return 'operatore';
+  return null;
+}
+
+function applicaRuolo(role) {
+  state.role = role;
+  sessionStorage.setItem(ROLE_KEY, role);
+  const pill = $('#rolePill');
+  pill.style.display = 'inline-block';
+  pill.textContent = role === 'direzione' ? 'Direzione' : 'Operatore';
+  pill.classList.toggle('direzione', role === 'direzione');
+  $('#btnLogout').style.display = 'flex';
+}
+
+async function avviaLogin(pwd) {
+  const errBox = $('#loginError');
+  errBox.classList.remove('show');
+  if (!pwd) {
+    errBox.textContent = 'Inserisci la password';
+    errBox.classList.add('show');
+    return;
+  }
+  const role = await verificaPassword(pwd);
+  if (!role) {
+    errBox.textContent = 'Password errata';
+    errBox.classList.add('show');
+    $('#loginPassword').value = '';
+    $('#loginPassword').focus();
+    return;
+  }
+  applicaRuolo(role);
+  $('#loginOverlay').classList.add('hidden');
+  $('#loginPassword').value = '';
+  // Avvia caricamento dati
+  await caricaDatiIniziali();
+}
+
+function logout() {
+  sessionStorage.removeItem(ROLE_KEY);
+  state.role = null;
+  $('#rolePill').style.display = 'none';
+  $('#btnLogout').style.display = 'none';
+  // Reset eventuali stati di scansione
+  state.scan.operatore = null;
+  state.scan.fase = null;
+  // Riporta su Inserimento
+  vaiAllaTab('inserimento');
+  resetForm();
+  $('#loginOverlay').classList.remove('hidden');
+  setTimeout(() => $('#loginPassword').focus(), 100);
+}
+
+function apriUpgradeDirezione(tabTarget) {
+  state._upgradeTarget = tabTarget;
+  $('#upgradeError').classList.remove('show');
+  $('#upgradePassword').value = '';
+  $('#modalUpgrade').classList.add('active');
+  setTimeout(() => $('#upgradePassword').focus(), 100);
+}
+
+async function confermaUpgrade() {
+  const pwd = $('#upgradePassword').value;
+  const errBox = $('#upgradeError');
+  errBox.classList.remove('show');
+  if (!pwd) {
+    errBox.textContent = 'Inserisci la password';
+    errBox.classList.add('show');
+    return;
+  }
+  const h = await sha256(pwd);
+  if (h !== HASH_DIREZIONE) {
+    errBox.textContent = 'Password Direzione errata';
+    errBox.classList.add('show');
+    $('#upgradePassword').value = '';
+    $('#upgradePassword').focus();
+    return;
+  }
+  applicaRuolo('direzione');
+  $('#modalUpgrade').classList.remove('active');
+  toast('Area Direzione sbloccata', 'success');
+  if (state._upgradeTarget) {
+    vaiAllaTab(state._upgradeTarget);
+    state._upgradeTarget = null;
+  }
+}
+
+// Listener login
+$('#loginBtn').addEventListener('click', () => avviaLogin($('#loginPassword').value));
+$('#loginPassword').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') avviaLogin($('#loginPassword').value);
+});
+$('#loginToggle').addEventListener('click', () => {
+  const inp = $('#loginPassword');
+  const show = $('#iconEyeShow');
+  const hide = $('#iconEyeHide');
+  if (inp.type === 'password') {
+    inp.type = 'text';
+    show.style.display = 'none';
+    hide.style.display = 'block';
+  } else {
+    inp.type = 'password';
+    show.style.display = 'block';
+    hide.style.display = 'none';
+  }
+});
+
+// Listener upgrade direzione
+$('#btnUpgradeConfirm').addEventListener('click', confermaUpgrade);
+$('#upgradePassword').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') confermaUpgrade();
+});
+
+// Listener logout
+$('#btnLogout').addEventListener('click', () => {
+  if (confirm('Vuoi uscire?')) logout();
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
 // API CALLS
 // ═══════════════════════════════════════════════════════════════════════════
 async function apiGet(action, params) {
@@ -1166,15 +1486,24 @@ async function caricaBollettini() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// TABS
+// TABS (con controllo ruolo per Riepilogo/Dashboard)
 // ═══════════════════════════════════════════════════════════════════════════
+function vaiAllaTab(t) {
+  $$('.tab-btn').forEach(x => x.classList.toggle('active', x.dataset.tab === t));
+  $$('.page').forEach(p => p.classList.toggle('active', p.id === 'page-' + t));
+  if (t === 'riepilogo') refreshRiepilogo();
+  if (t === 'dashboard') refreshDashboard();
+}
+
 $$('.tab-btn').forEach(b => {
   b.addEventListener('click', () => {
     const t = b.dataset.tab;
-    $$('.tab-btn').forEach(x => x.classList.toggle('active', x.dataset.tab === t));
-    $$('.page').forEach(p => p.classList.toggle('active', p.id === 'page-' + t));
-    if (t === 'riepilogo') refreshRiepilogo();
-    if (t === 'dashboard') refreshDashboard();
+    // Se è una tab riservata e l'utente è solo "operatore" → chiedi upgrade
+    if ((t === 'riepilogo' || t === 'dashboard') && state.role !== 'direzione') {
+      apriUpgradeDirezione(t);
+      return;
+    }
+    vaiAllaTab(t);
   });
 });
 
@@ -1747,25 +2076,12 @@ function drawChartTrend(labels, values) {
 // ═══════════════════════════════════════════════════════════════════════════
 // AVVIO
 // ═══════════════════════════════════════════════════════════════════════════
-async function init() {
-  // Default filtri data
-  const oggi = fmtDate(new Date());
-  const settimana = new Date();
-  settimana.setDate(settimana.getDate() - 7);
-  $('#filterDal').value = fmtDate(settimana);
-  $('#filterAl').value = oggi;
-
+async function caricaDatiIniziali() {
   if (!backendUrl) {
     setStatusDot('err');
-    setTimeout(() => {
-      $('#settingsUrl').value = '';
-      $('#settingsStatus').className = 'settings-status err';
-      $('#settingsStatus').textContent = 'Configura l\'URL del backend per iniziare.';
-      $('#modalSettings').classList.add('active');
-    }, 400);
+    showAlert('Configurazione mancante', 'URL backend non impostato. Apri ⚙️ Impostazioni.', true);
     return;
   }
-
   showLoading('Caricamento anagrafica...');
   const ok1 = await caricaAnagrafica();
   if (ok1) await caricaBollettini();
@@ -1776,6 +2092,26 @@ async function init() {
     aggiornaContatoreOggi();
   } else {
     showAlert('Connessione fallita', 'Impossibile contattare il backend. Apri ⚙️ Impostazioni e verifica l\'URL.', true);
+  }
+}
+
+async function init() {
+  // Default filtri data
+  const oggi = fmtDate(new Date());
+  const settimana = new Date();
+  settimana.setDate(settimana.getDate() - 7);
+  $('#filterDal').value = fmtDate(settimana);
+  $('#filterAl').value = oggi;
+
+  // Se l'utente ha già una sessione valida (es. è solo cambiato di tab e tornato)
+  if (state.role === 'operatore' || state.role === 'direzione') {
+    applicaRuolo(state.role);
+    $('#loginOverlay').classList.add('hidden');
+    await caricaDatiIniziali();
+  } else {
+    // Mostra schermata login
+    $('#loginOverlay').classList.remove('hidden');
+    setTimeout(() => $('#loginPassword').focus(), 200);
   }
 }
 
