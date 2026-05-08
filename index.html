@@ -219,8 +219,20 @@ input, select { font-family: inherit; font-size: inherit; color: inherit; }
   font-weight: 500;
 }
 
-.scan-status { flex-shrink: 0; }
+.scan-status { flex-shrink: 0; display: flex; align-items: center; gap: 4px; }
 .scan-status svg { width: 24px; height: 24px; color: var(--ok); }
+.scan-clear {
+  width: 32px; height: 32px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 50%;
+  color: var(--ink-soft);
+  background: rgba(255,255,255,.7);
+  transition: all .15s;
+  cursor: pointer;
+}
+.scan-clear:hover { background: var(--warn-soft); color: var(--warn); }
+.scan-clear:active { transform: scale(.92); }
+.scan-clear svg { width: 16px; height: 16px; color: inherit; }
 
 /* OP scan button (terzo, attivo solo se i primi due sono compilati) */
 .scan-btn.primary {
@@ -743,6 +755,21 @@ input, select { font-family: inherit; font-size: inherit; color: inherit; }
 .toast.success { background: var(--ok); }
 .toast.error { background: var(--warn); }
 .toast svg { width: 20px; height: 20px; flex-shrink: 0; }
+.toast-action {
+  margin-left: 12px;
+  padding: 6px 14px;
+  background: rgba(255,255,255,.2);
+  color: #fff;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background .15s;
+  border: 1px solid rgba(255,255,255,.3);
+}
+.toast-action:hover { background: rgba(255,255,255,.35); }
 
 /* Loading overlay */
 .loading {
@@ -1245,7 +1272,7 @@ input, select { font-family: inherit; font-size: inherit; color: inherit; }
 </div>
 
 <!-- ═══════════════════════ TOAST + LOADING ═══════════════════════ -->
-<div class="toast" id="toast"><span id="toastIcon"></span><span id="toastText"></span></div>
+<div class="toast" id="toast"><span id="toastIcon"></span><span id="toastText"></span><button class="toast-action" id="toastAction" style="display:none"></button></div>
 <div class="loading" id="loadingOverlay">
   <div class="spinner"></div>
   <div class="loading-text" id="loadingText">Caricamento...</div>
@@ -1290,7 +1317,7 @@ function showLoading(text) {
 }
 function hideLoading() { $('#loadingOverlay').classList.remove('active'); }
 
-function toast(msg, type) {
+function toast(msg, type, opts) {
   const el = $('#toast');
   el.className = 'toast ' + (type || '');
   const icons = {
@@ -1300,9 +1327,25 @@ function toast(msg, type) {
   };
   $('#toastIcon').innerHTML = icons[type] || icons.info;
   $('#toastText').textContent = msg;
+
+  // Action button (opzionale)
+  const actionBtn = $('#toastAction');
+  if (opts && opts.actionLabel && typeof opts.onAction === 'function') {
+    actionBtn.textContent = opts.actionLabel;
+    actionBtn.style.display = 'inline-block';
+    actionBtn.onclick = () => {
+      el.classList.remove('show');
+      opts.onAction();
+    };
+  } else {
+    actionBtn.style.display = 'none';
+    actionBtn.onclick = null;
+  }
+
   el.classList.add('show');
   clearTimeout(toast._t);
-  toast._t = setTimeout(() => el.classList.remove('show'), 3500);
+  const duration = (opts && opts.duration) || 3500;
+  toast._t = setTimeout(() => el.classList.remove('show'), duration);
 }
 
 function showAlert(title, msg, isError) {
@@ -1830,8 +1873,37 @@ function aggiornaUI(step) {
 function bloccaBottone(step) {
   const btn = $('#btn-' + step);
   btn.classList.add('filled', 'locked');
-  $('#status-' + step).innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>';
+  $('#status-' + step).innerHTML =
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>' +
+    '<button class="scan-clear" data-clear="' + step + '" title="Pulisci e riscansiona">' +
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>' +
+    '</button>';
 }
+
+// Pulisce solo uno step (operatore o fase) lasciando l'altro come è
+function pulisciStep(step) {
+  if (step !== 'operatore' && step !== 'fase') return;
+  state.scan[step] = null;
+  const btn = $('#btn-' + step);
+  btn.classList.remove('filled', 'locked');
+  $('#status-' + step).innerHTML = '';
+  $('#val-' + step).textContent = 'Tocca per scansionare';
+  $('#val-' + step).classList.add('placeholder');
+  $('#code-' + step).textContent = '';
+  // Disabilita il bottone OP perché manca uno step
+  $('#btn-op').disabled = true;
+  $('#val-op').textContent = 'Compila prima i campi sopra';
+}
+
+// Listener globale per i pulsanti ✕ (delegation perché vengono creati dinamicamente)
+document.addEventListener('click', (e) => {
+  const clearBtn = e.target.closest('.scan-clear');
+  if (clearBtn) {
+    e.stopPropagation();  // evita che riapra lo scanner del bottone padre
+    const step = clearBtn.dataset.clear;
+    pulisciStep(step);
+  }
+});
 
 function abilitaOPSeProto() {
   if (state.scan.operatore && state.scan.fase) {
@@ -1877,17 +1949,15 @@ async function salvaBollettino(opBarcode) {
     fase_id:          payload.fase_id,
     fase_descrizione: payload.fase_descrizione,
     op_barcode:       payload.op_barcode,
-    _pending:         true   // marker per identificare se manca conferma server
+    _pending:         true
   };
   state.bollettini.unshift(bollettinoLocale);
-  toast('OP "' + opBarcode + '" registrato', 'success');
   aggiornaContatoreOggi();
   resetForm();
 
-  // SALVATAGGIO IN BACKGROUND (non blocca l'UI)
+  // SALVATAGGIO IN BACKGROUND
   apiPost(payload).then(r => {
     if (r.duplicato) {
-      // Server ha rilevato duplicato (race condition) → rimuovo dal locale
       const idx = state.bollettini.indexOf(bollettinoLocale);
       if (idx >= 0) state.bollettini.splice(idx, 1);
       aggiornaContatoreOggi();
@@ -1895,24 +1965,56 @@ async function salvaBollettino(opBarcode) {
       return;
     }
     if (!r.ok) {
-      // Errore generico → rollback
       const idx = state.bollettini.indexOf(bollettinoLocale);
       if (idx >= 0) state.bollettini.splice(idx, 1);
       aggiornaContatoreOggi();
       showAlert('Errore di salvataggio', r.error || 'Errore durante il salvataggio. Riprova.', true);
       return;
     }
-    // Successo: aggiorno il bollettino locale con il timestamp del server
+    // Successo: aggiorno il bollettino con il timestamp del server
     bollettinoLocale.timestamp = r.timestamp || bollettinoLocale.timestamp;
     delete bollettinoLocale._pending;
     salvaCacheBollettini();
+    // Toast con bottone Annulla (8 secondi di tempo per ripensarci)
+    toast('OP "' + opBarcode + '" registrato', 'success', {
+      duration: 8000,
+      actionLabel: 'Annulla',
+      onAction: () => annullaBollettino(bollettinoLocale)
+    });
   }).catch(e => {
-    // Rete fallita → rollback
     const idx = state.bollettini.indexOf(bollettinoLocale);
     if (idx >= 0) state.bollettini.splice(idx, 1);
     aggiornaContatoreOggi();
     showAlert('Errore di rete', 'Impossibile contattare il server. Riprova la scansione.', true);
   });
+}
+
+// Annulla l'ultima scansione: rimuove dal server e dallo state locale
+async function annullaBollettino(bollettino) {
+  if (!bollettino || !bollettino.timestamp) return;
+  showLoading('Annullamento...');
+  try {
+    const r = await apiPost({ action: 'delete', timestamp: bollettino.timestamp });
+    hideLoading();
+    if (r.ok && r.eliminato) {
+      // Rimuovo dallo state locale
+      const idx = state.bollettini.indexOf(bollettino);
+      if (idx >= 0) state.bollettini.splice(idx, 1);
+      aggiornaContatoreOggi();
+      salvaCacheBollettini();
+      // Aggiorna eventuali tab attive
+      const activeTab = document.querySelector('.tab-btn.active');
+      const t = activeTab ? activeTab.dataset.tab : null;
+      if (t === 'riepilogo') refreshRiepilogo();
+      if (t === 'dashboard') refreshDashboard();
+      toast('Bollettino annullato', 'success');
+    } else {
+      showAlert('Annullamento fallito', r.error || 'Bollettino non trovato sul server. Aggiorna la pagina.', true);
+    }
+  } catch (e) {
+    hideLoading();
+    showAlert('Errore di rete', 'Impossibile annullare. Riprova.', true);
+  }
 }
 
 function resetForm() {
