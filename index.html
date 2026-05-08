@@ -1291,7 +1291,29 @@ const HASH_DIREZIONE = '1bc486ea4e7e3b56bd8e158c64d3d8472861bedcce5abf11bca85c06
 
 const STORAGE_KEY = 'efficienza_app_url';
 const ROLE_KEY = 'efficienza_app_role';
+const ROLE_EXPIRY_KEY = 'efficienza_app_role_expiry';
+const ROLE_DURATION_MS = 12 * 60 * 60 * 1000; // 12 ore di sessione persistente
+const PENDING_QUEUE_KEY = 'efficienza_pending_queue';
 let backendUrl = localStorage.getItem(STORAGE_KEY) || DEFAULT_BACKEND_URL;
+
+function getRoleStored() {
+  const role = localStorage.getItem(ROLE_KEY);
+  const expiry = parseInt(localStorage.getItem(ROLE_EXPIRY_KEY) || '0');
+  if (!role || Date.now() > expiry) {
+    localStorage.removeItem(ROLE_KEY);
+    localStorage.removeItem(ROLE_EXPIRY_KEY);
+    return null;
+  }
+  return role;
+}
+function setRoleStored(role) {
+  localStorage.setItem(ROLE_KEY, role);
+  localStorage.setItem(ROLE_EXPIRY_KEY, String(Date.now() + ROLE_DURATION_MS));
+}
+function clearRoleStored() {
+  localStorage.removeItem(ROLE_KEY);
+  localStorage.removeItem(ROLE_EXPIRY_KEY);
+}
 
 const state = {
   anagrafica: { operatori: [], fasi: [] },
@@ -1299,7 +1321,7 @@ const state = {
   scan: { operatore: null, fase: null },
   currentScanStep: null,
   currentPeriod: 'oggi',
-  role: sessionStorage.getItem(ROLE_KEY) || null  // 'operatore' | 'direzione' | null
+  role: getRoleStored()  // 'operatore' | 'direzione' | null - sessione 12h persistente
 };
 
 let codeReader = null;
@@ -1398,7 +1420,7 @@ async function verificaPassword(input) {
 
 function applicaRuolo(role) {
   state.role = role;
-  sessionStorage.setItem(ROLE_KEY, role);
+  setRoleStored(role);
   const pill = $('#rolePill');
   pill.style.display = 'inline-block';
   pill.textContent = role === 'direzione' ? 'Direzione' : 'Operatore';
@@ -1482,7 +1504,7 @@ async function avviaLogin(pwd) {
 
 function logout() {
   fermaPolling();
-  sessionStorage.removeItem(ROLE_KEY);
+  clearRoleStored();
   state.role = null;
   $('#rolePill').style.display = 'none';
   $('#btnLogout').style.display = 'none';
@@ -1865,7 +1887,13 @@ async function gestisciScansione(barcode) {
       toast('Compila prima Operatore e Fase', 'error');
       return;
     }
-    salvaBollettino(barcode);
+    // Validazione formato OP: deve iniziare con "OP" e avere almeno 4 caratteri
+    const codeOP = String(barcode).trim();
+    if (!/^OP/i.test(codeOP) || codeOP.length < 4) {
+      toast('Formato OP non valido: "' + codeOP + '". Il barcode deve iniziare con "OP".', 'error');
+      return;
+    }
+    salvaBollettino(codeOP);
   }
 }
 
@@ -1996,12 +2024,81 @@ async function salvaBollettino(opBarcode) {
       onAction: () => annullaBollettino(bollettinoLocale)
     });
   }).catch(e => {
-    const idx = state.bollettini.indexOf(bollettinoLocale);
-    if (idx >= 0) state.bollettini.splice(idx, 1);
-    aggiornaContatoreOggi();
-    showAlert('Errore di rete', 'Impossibile contattare il server. Riprova la scansione.', true);
+    // Rete fallita → coda persistente, ritrasmetto quando torna
+    aggiungiACodaPendenti(payload, bollettinoLocale);
+    toast('OP "' + opBarcode + '" salvato in coda (sincronizzo appena torna la rete)', 'info', { duration: 5000 });
   });
 }
+
+// ─── Coda salvataggi pendenti (resilienza alla rete) ──────────────────────
+function getCodaPendenti() {
+  try { return JSON.parse(localStorage.getItem(PENDING_QUEUE_KEY)) || []; }
+  catch { return []; }
+}
+function setCodaPendenti(q) {
+  try { localStorage.setItem(PENDING_QUEUE_KEY, JSON.stringify(q)); } catch (e) {}
+}
+function aggiungiACodaPendenti(payload, bollettinoLocale) {
+  const q = getCodaPendenti();
+  q.push({ payload, ts_locale: bollettinoLocale.timestamp });
+  setCodaPendenti(q);
+}
+
+async function ritrasmettiCoda() {
+  const q = getCodaPendenti();
+  if (q.length === 0) return;
+  const ancora = [];
+  let successi = 0;
+  for (const item of q) {
+    try {
+      const r = await apiPost(item.payload);
+      if (r.ok || r.duplicato) {
+        successi++;
+        const local = state.bollettini.find(b => b.timestamp === item.ts_locale);
+        if (local) {
+          if (r.ok && r.timestamp) local.timestamp = r.timestamp;
+          delete local._pending;
+        }
+      } else {
+        ancora.push(item);
+      }
+    } catch (err) {
+      ancora.push(item);  // rete ancora fallita
+    }
+  }
+  setCodaPendenti(ancora);
+  if (successi > 0) {
+    salvaCacheBollettini();
+    toast('Sincronizzati ' + successi + ' bollettini in coda', 'success');
+  }
+}
+
+// Ritrasmissione automatica ogni 30 secondi se coda non vuota
+setInterval(() => {
+  if (state.role && navigator.onLine && getCodaPendenti().length > 0) {
+    ritrasmettiCoda();
+  }
+}, 30000);
+
+// Quando torna la connessione (evento browser)
+window.addEventListener('online', () => {
+  if (getCodaPendenti().length > 0) ritrasmettiCoda();
+});
+
+// Quando il tablet si risveglia / la tab torna visibile
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && state.role && backendUrl) {
+    console.log('[wake] tablet attivo, refresh dati');
+    Promise.all([caricaAnagrafica(), caricaBollettini()]).then(() => {
+      aggiornaContatoreOggi();
+      const activeTab = document.querySelector('.tab-btn.active');
+      const t = activeTab ? activeTab.dataset.tab : null;
+      if (t === 'riepilogo') refreshRiepilogo();
+      if (t === 'dashboard') refreshDashboard();
+      if (getCodaPendenti().length > 0) ritrasmettiCoda();
+    }).catch(() => {});
+  }
+});
 
 // Annulla l'ultima scansione: rimuove dal server e dallo state locale
 async function annullaBollettino(bollettino) {
