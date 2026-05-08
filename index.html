@@ -1363,19 +1363,26 @@ function applicaRuolo(role) {
   $('#btnLogout').style.display = 'flex';
 }
 
-// ─── Polling automatico ogni 5 minuti ──────────────────────────────
+// ─── Polling automatico differenziato ──────────────────────────────
 let pollingInterval = null;
-const POLL_MS = 5 * 60 * 1000;
+let pollingCounter = 0;
+const POLL_MS = 5 * 60 * 1000;  // 5 minuti per bollettini
+const ANAGRAFICA_EVERY_N_POLLS = 6;  // 5 * 6 = 30 minuti per anagrafica
 
 function avviaPolling() {
   fermaPolling();
+  pollingCounter = 0;
   pollingInterval = setInterval(async () => {
     if (!state.role || !backendUrl) return;
     try {
-      const ok1 = await caricaAnagrafica();
-      if (!ok1) return;
-      const ok2 = await caricaBollettini();
-      if (!ok2) return;
+      pollingCounter++;
+      // Bollettini: sempre (ogni 5 min)
+      const ok = await caricaBollettini();
+      if (!ok) return;
+      // Anagrafica: solo ogni 30 minuti (raramente cambia)
+      if (pollingCounter % ANAGRAFICA_EVERY_N_POLLS === 0) {
+        await caricaAnagrafica();
+      }
       // Aggiorna UI
       aggiornaContatoreOggi();
       const activeTab = document.querySelector('.tab-btn.active');
@@ -1415,8 +1422,12 @@ async function avviaLogin(pwd) {
   applicaRuolo(role);
   $('#loginOverlay').classList.add('hidden');
   $('#loginPassword').value = '';
-  // Avvia caricamento dati
-  await caricaDatiIniziali();
+  // Carica cache locale (istantaneo) e mostra subito UI
+  caricaCacheLocale();
+  populateFilters();
+  aggiornaContatoreOggi();
+  // Avvia background refresh (no loading overlay)
+  caricaDatiIniziali(true);
   avviaPolling();
 }
 
@@ -1502,8 +1513,12 @@ $('#btnLogout').addEventListener('click', () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
-// API CALLS
+// API CALLS (con cache locale per UX scattante)
 // ═══════════════════════════════════════════════════════════════════════════
+const CACHE_ANAGRAFICA_KEY = 'efficienza_cache_anagrafica';
+const CACHE_BOLLETTINI_KEY = 'efficienza_cache_bollettini';
+const CACHE_TS_KEY = 'efficienza_cache_ts';
+
 async function apiGet(action, params) {
   if (!backendUrl) throw new Error('URL backend non configurato. Apri ⚙️ Impostazioni.');
   const url = new URL(backendUrl);
@@ -1525,12 +1540,54 @@ async function apiPost(payload) {
   return await res.json();
 }
 
+// ─── Cache locale ─────────────────────────────────────────────────────────
+function caricaCacheLocale() {
+  try {
+    const a = localStorage.getItem(CACHE_ANAGRAFICA_KEY);
+    if (a) {
+      const parsed = JSON.parse(a);
+      if (parsed.operatori && parsed.fasi) {
+        state.anagrafica.operatori = parsed.operatori;
+        state.anagrafica.fasi = parsed.fasi;
+      }
+    }
+    const b = localStorage.getItem(CACHE_BOLLETTINI_KEY);
+    if (b) {
+      const parsed = JSON.parse(b);
+      if (Array.isArray(parsed)) {
+        state.bollettini = parsed;
+      }
+    }
+  } catch (e) {
+    console.warn('Errore lettura cache:', e);
+  }
+}
+
+function salvaCacheAnagrafica() {
+  try {
+    localStorage.setItem(CACHE_ANAGRAFICA_KEY, JSON.stringify({
+      operatori: state.anagrafica.operatori,
+      fasi: state.anagrafica.fasi
+    }));
+  } catch (e) {}
+}
+
+function salvaCacheBollettini() {
+  try {
+    // Limita a 1000 record nella cache per non saturare localStorage
+    const toSave = state.bollettini.slice(0, 1000);
+    localStorage.setItem(CACHE_BOLLETTINI_KEY, JSON.stringify(toSave));
+    localStorage.setItem(CACHE_TS_KEY, String(Date.now()));
+  } catch (e) {}
+}
+
 async function caricaAnagrafica() {
   try {
     const r = await apiGet('anagrafica');
     if (!r.ok) throw new Error(r.error || 'Errore caricamento anagrafica');
     state.anagrafica.operatori = r.operatori || [];
     state.anagrafica.fasi = r.fasi || [];
+    salvaCacheAnagrafica();
     setStatusDot('ok');
     return true;
   } catch (e) {
@@ -1542,9 +1599,14 @@ async function caricaAnagrafica() {
 
 async function caricaBollettini() {
   try {
-    const r = await apiGet('bollettini');
+    // Carica solo gli ultimi 60 giorni per velocità
+    const dalDate = new Date();
+    dalDate.setDate(dalDate.getDate() - 60);
+    const dal = fmtDate(dalDate);
+    const r = await apiGet('bollettini', { dal });
     if (!r.ok) throw new Error(r.error || 'Errore caricamento bollettini');
     state.bollettini = r.bollettini || [];
+    salvaCacheBollettini();
     setStatusDot('ok');
     return true;
   } catch (e) {
@@ -1766,47 +1828,78 @@ function abilitaOPSeProto() {
 }
 
 async function salvaBollettino(opBarcode) {
-  showLoading('Salvataggio...');
-  try {
-    const payload = {
-      operatore_id:      state.scan.operatore.id,
-      operatore_nome:    state.scan.operatore.descrizione,
-      fase_id:           state.scan.fase.id,
-      fase_descrizione:  state.scan.fase.descrizione,
-      op_barcode:        String(opBarcode).trim()
-    };
-    const r = await apiPost(payload);
-    hideLoading();
+  const payload = {
+    operatore_id:      state.scan.operatore.id,
+    operatore_nome:    state.scan.operatore.descrizione,
+    fase_id:           state.scan.fase.id,
+    fase_descrizione:  state.scan.fase.descrizione,
+    op_barcode:        String(opBarcode).trim()
+  };
 
+  // CHECK DUPLICATO LATO CLIENT (istantaneo, no server)
+  const oggi = fmtDate(new Date());
+  const giaPresente = state.bollettini.find(b =>
+    b.data === oggi &&
+    b.fase_id === payload.fase_id &&
+    b.op_barcode === payload.op_barcode
+  );
+  if (giaPresente) {
+    showAlert(
+      'OP già registrato',
+      'Questo OP è già stato registrato oggi sulla fase "' + payload.fase_descrizione +
+      '" da ' + giaPresente.operatore_nome + ' alle ' + (giaPresente.ora || ''),
+      true
+    );
+    return;
+  }
+
+  // OPTIMISTIC UI: aggiungo subito allo state e resetto il form
+  const ora = new Date();
+  const bollettinoLocale = {
+    timestamp:        ora.toISOString(),
+    data:             fmtDate(ora),
+    ora:              ora.toTimeString().split(' ')[0],
+    operatore_id:     payload.operatore_id,
+    operatore_nome:   payload.operatore_nome,
+    fase_id:          payload.fase_id,
+    fase_descrizione: payload.fase_descrizione,
+    op_barcode:       payload.op_barcode,
+    _pending:         true   // marker per identificare se manca conferma server
+  };
+  state.bollettini.unshift(bollettinoLocale);
+  toast('OP "' + opBarcode + '" registrato', 'success');
+  aggiornaContatoreOggi();
+  resetForm();
+
+  // SALVATAGGIO IN BACKGROUND (non blocca l'UI)
+  apiPost(payload).then(r => {
     if (r.duplicato) {
-      showAlert('OP già registrato', r.messaggio || 'Questo OP è già stato registrato oggi su questa fase.', true);
+      // Server ha rilevato duplicato (race condition) → rimuovo dal locale
+      const idx = state.bollettini.indexOf(bollettinoLocale);
+      if (idx >= 0) state.bollettini.splice(idx, 1);
+      aggiornaContatoreOggi();
+      showAlert('OP già registrato', r.messaggio || 'Questo OP era già registrato.', true);
       return;
     }
     if (!r.ok) {
-      showAlert('Errore', r.error || 'Errore durante il salvataggio', true);
+      // Errore generico → rollback
+      const idx = state.bollettini.indexOf(bollettinoLocale);
+      if (idx >= 0) state.bollettini.splice(idx, 1);
+      aggiornaContatoreOggi();
+      showAlert('Errore di salvataggio', r.error || 'Errore durante il salvataggio. Riprova.', true);
       return;
     }
-
-    // Successo: aggiorna lista locale
-    const ora = new Date();
-    state.bollettini.push({
-      timestamp:        ora.toISOString(),
-      data:             fmtDate(ora),
-      ora:              ora.toTimeString().split(' ')[0],
-      operatore_id:     payload.operatore_id,
-      operatore_nome:   payload.operatore_nome,
-      fase_id:          payload.fase_id,
-      fase_descrizione: payload.fase_descrizione,
-      op_barcode:       payload.op_barcode
-    });
-
-    toast('OP "' + opBarcode + '" registrato', 'success');
+    // Successo: aggiorno il bollettino locale con il timestamp del server
+    bollettinoLocale.timestamp = r.timestamp || bollettinoLocale.timestamp;
+    delete bollettinoLocale._pending;
+    salvaCacheBollettini();
+  }).catch(e => {
+    // Rete fallita → rollback
+    const idx = state.bollettini.indexOf(bollettinoLocale);
+    if (idx >= 0) state.bollettini.splice(idx, 1);
     aggiornaContatoreOggi();
-    resetForm();
-  } catch (e) {
-    hideLoading();
-    showAlert('Errore di rete', e.message || 'Impossibile salvare', true);
-  }
+    showAlert('Errore di rete', 'Impossibile contattare il server. Riprova la scansione.', true);
+  });
 }
 
 function resetForm() {
@@ -2185,23 +2278,34 @@ function drawChartTrend(labels, values) {
 // ═══════════════════════════════════════════════════════════════════════════
 // AVVIO
 // ═══════════════════════════════════════════════════════════════════════════
-async function caricaDatiIniziali() {
+async function caricaDatiIniziali(silenzioso) {
   if (!backendUrl) {
     setStatusDot('err');
     showAlert('Configurazione mancante', 'URL backend non impostato. Apri ⚙️ Impostazioni.', true);
     return;
   }
-  showLoading('Caricamento anagrafica...');
-  const ok1 = await caricaAnagrafica();
-  if (ok1) await caricaBollettini();
-  hideLoading();
+  if (!silenzioso) showLoading('Sincronizzazione...');
+
+  // PARALLELO: anagrafica e bollettini in contemporanea (50% più veloce)
+  const [ok1, ok2] = await Promise.all([
+    caricaAnagrafica(),
+    caricaBollettini()
+  ]);
+
+  if (!silenzioso) hideLoading();
 
   if (ok1) {
     populateFilters();
     aggiornaContatoreOggi();
-  } else {
-    showAlert('Connessione fallita', 'Impossibile contattare il backend. Apri ⚙️ Impostazioni e verifica l\'URL.', true);
+  } else if (!silenzioso) {
+    showAlert('Connessione lenta', 'Sto usando i dati salvati nel dispositivo. Tira giù per aggiornare quando la connessione torna.', true);
   }
+
+  // Aggiorna eventuali tab attive
+  const activeTab = document.querySelector('.tab-btn.active');
+  const t = activeTab ? activeTab.dataset.tab : null;
+  if (t === 'riepilogo') refreshRiepilogo();
+  if (t === 'dashboard') refreshDashboard();
 }
 
 async function init() {
@@ -2213,11 +2317,17 @@ async function init() {
   $('#filterDal').value = fmtDate(settimana);
   $('#filterAl').value = '';
 
+  // CACHE-FIRST: carico i dati locali subito (istantaneo)
+  caricaCacheLocale();
+
   // Se l'utente ha già una sessione valida (es. è solo cambiato di tab e tornato)
   if (state.role === 'operatore' || state.role === 'direzione') {
     applicaRuolo(state.role);
     $('#loginOverlay').classList.add('hidden');
-    await caricaDatiIniziali();
+    populateFilters();
+    aggiornaContatoreOggi();
+    // Background refresh: i dati di rete arrivano quando arrivano, l'UI è già pronta
+    caricaDatiIniziali(true);  // silenzioso = no loading overlay
     avviaPolling();
   } else {
     // Mostra schermata login
