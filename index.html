@@ -1422,12 +1422,18 @@ async function avviaLogin(pwd) {
   applicaRuolo(role);
   $('#loginOverlay').classList.add('hidden');
   $('#loginPassword').value = '';
-  // Carica cache locale (istantaneo) e mostra subito UI
+  // Carica cache locale
   caricaCacheLocale();
+  const cachePiena = state.anagrafica.operatori.length > 0;
   populateFilters();
   aggiornaContatoreOggi();
-  // Avvia background refresh (no loading overlay)
-  caricaDatiIniziali(true);
+  if (cachePiena) {
+    // Cache già presente: UI istantanea + refresh in background
+    caricaDatiIniziali(true);
+  } else {
+    // Prima volta: carico bloccante per essere sicuri che l'anagrafica sia pronta
+    await caricaDatiIniziali(false);
+  }
   avviaPolling();
 }
 
@@ -1767,6 +1773,13 @@ function trovaInAnagrafica(barcode, lista) {
 
 function gestisciScansione(barcode) {
   const step = state.currentScanStep;
+
+  // SAFETY NET: anagrafica non ancora caricata
+  if ((step === 'operatore' || step === 'fase') &&
+      (state.anagrafica.operatori.length === 0 || state.anagrafica.fasi.length === 0)) {
+    toast('Anagrafica non ancora caricata. Attendi qualche secondo e riprova.', 'error');
+    return;
+  }
 
   if (step === 'operatore') {
     const trovato = trovaInAnagrafica(barcode, state.anagrafica.operatori);
@@ -2317,8 +2330,9 @@ async function init() {
   $('#filterDal').value = fmtDate(settimana);
   $('#filterAl').value = '';
 
-  // CACHE-FIRST: carico i dati locali subito (istantaneo)
+  // CACHE-FIRST: carico i dati locali subito (istantaneo se cache esiste)
   caricaCacheLocale();
+  const cachePiena = state.anagrafica.operatori.length > 0;
 
   // Se l'utente ha già una sessione valida (es. è solo cambiato di tab e tornato)
   if (state.role === 'operatore' || state.role === 'direzione') {
@@ -2326,8 +2340,14 @@ async function init() {
     $('#loginOverlay').classList.add('hidden');
     populateFilters();
     aggiornaContatoreOggi();
-    // Background refresh: i dati di rete arrivano quando arrivano, l'UI è già pronta
-    caricaDatiIniziali(true);  // silenzioso = no loading overlay
+
+    if (cachePiena) {
+      // Cache già presente: UI istantanea + background refresh
+      caricaDatiIniziali(true);
+    } else {
+      // Prima apertura o cache svuotata: carico bloccante
+      await caricaDatiIniziali(false);
+    }
     avviaPolling();
   } else {
     // Mostra schermata login
