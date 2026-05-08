@@ -1604,6 +1604,7 @@ async function apriScanner(step) {
 // Direzione fotocamera: 'environment' (posteriore, default) o 'user' (frontale)
 const CAMERA_KEY = 'efficienza_camera_facing';
 let cameraFacing = localStorage.getItem(CAMERA_KEY) || 'environment';
+let scannerActive = false;  // flag per ignorare callback ZXing residui
 
 async function avviaWebcam() {
   try {
@@ -1612,8 +1613,8 @@ async function avviaWebcam() {
       try { codeReader.reset(); } catch (e) {}
     }
     codeReader = new ZXing.BrowserMultiFormatReader();
+    scannerActive = true;
 
-    // Usa facingMode invece di scegliere device per nome (più affidabile)
     const constraints = {
       video: {
         facingMode: { ideal: cameraFacing },
@@ -1623,7 +1624,10 @@ async function avviaWebcam() {
     };
 
     await codeReader.decodeFromConstraints(constraints, 'scanner-video', (result, err) => {
+      // CRITICO: ignora callback "in volo" arrivati dopo la chiusura
+      if (!scannerActive) return;
       if (result) {
+        scannerActive = false;  // blocca subito eventuali callback successivi
         const code = result.getText();
         chiudiScanner();
         gestisciScansione(code);
@@ -1652,17 +1656,29 @@ async function ruotaCamera() {
 $('#btnSwitchCamera').addEventListener('click', ruotaCamera);
 
 function chiudiScanner() {
+  scannerActive = false;
   $('#modalScanner').classList.remove('active');
+  // 1. Reset del decoder ZXing
   if (codeReader) {
     try { codeReader.reset(); } catch (e) {}
+  }
+  // 2. Stop esplicito di tutte le tracce della webcam (necessario su iOS Safari)
+  const video = document.getElementById('scanner-video');
+  if (video && video.srcObject) {
+    try {
+      video.srcObject.getTracks().forEach(t => t.stop());
+      video.srcObject = null;
+    } catch (e) {}
   }
 }
 
 // Input USB / manuale: invio = conferma
 $('#usbInput').addEventListener('keydown', (e) => {
   if (e.key === 'Enter') {
+    if (!scannerActive) return;  // protezione: ignora se scanner non attivo
     const code = $('#usbInput').value.trim();
     if (!code) return;
+    scannerActive = false;
     chiudiScanner();
     gestisciScansione(code);
   }
@@ -1821,18 +1837,20 @@ function aggiornaContatoreOggi() {
 $$('[data-close]').forEach(b => {
   b.addEventListener('click', () => {
     const id = b.dataset.close;
-    $('#' + id).classList.remove('active');
-    if (id === 'modalScanner' && codeReader) {
-      try { codeReader.reset(); } catch(e) {}
+    if (id === 'modalScanner') {
+      chiudiScanner();
+    } else {
+      $('#' + id).classList.remove('active');
     }
   });
 });
 $$('.modal-backdrop').forEach(bg => {
   bg.addEventListener('click', (e) => {
     if (e.target === bg) {
-      bg.classList.remove('active');
-      if (bg.id === 'modalScanner' && codeReader) {
-        try { codeReader.reset(); } catch(e) {}
+      if (bg.id === 'modalScanner') {
+        chiudiScanner();
+      } else {
+        bg.classList.remove('active');
       }
     }
   });
