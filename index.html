@@ -1444,7 +1444,7 @@ function avviaPolling() {
       // Bollettini: sempre (ogni 5 min)
       const ok = await caricaBollettini();
       if (!ok) return;
-      // Anagrafica: solo ogni 30 minuti (raramente cambia)
+      // Anagrafica: ogni 5 min (per reattività a modifiche)
       if (pollingCounter % ANAGRAFICA_EVERY_N_POLLS === 0) {
         await caricaAnagrafica();
       }
@@ -1645,7 +1645,6 @@ function salvaCacheAnagrafica() {
 
 function salvaCacheBollettini() {
   try {
-    // Limita a 1000 record nella cache per non saturare localStorage
     const toSave = state.bollettini.slice(0, 1000);
     localStorage.setItem(CACHE_BOLLETTINI_KEY, JSON.stringify(toSave));
     localStorage.setItem(CACHE_TS_KEY, String(Date.now()));
@@ -1670,7 +1669,6 @@ async function caricaAnagrafica() {
 
 async function caricaBollettini() {
   try {
-    // Carica solo gli ultimi 60 giorni per velocità
     const dalDate = new Date();
     dalDate.setDate(dalDate.getDate() - 60);
     const dal = fmtDate(dalDate);
