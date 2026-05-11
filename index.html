@@ -736,9 +736,9 @@ input, select { font-family: inherit; font-size: inherit; color: inherit; }
 /* Toast */
 .toast {
   position: fixed;
-  bottom: 24px;
+  top: 76px;
   left: 50%;
-  transform: translateX(-50%) translateY(120%);
+  transform: translateX(-50%) translateY(-150%);
   background: var(--ink);
   color: #fff;
   padding: 14px 22px;
@@ -1287,7 +1287,7 @@ const DEFAULT_BACKEND_URL = 'https://script.google.com/macros/s/AKfycbwSSX040CfK
 // Hash SHA-256 delle password — modifica questi se vuoi cambiare le password
 // (usa un tool online tipo "sha256 calculator" e incolla qui il risultato in lowercase)
 const HASH_OPERATORE = 'bed2ef25a3c07d7e9a978294bd1b6026fb13b78e94da9c2315af3743a2671b0c';
-const HASH_DIREZIONE = '1bc486ea4e7e3b56bd8e158c64d3d8472861bedcce5abf11bca85c0650d3c5e3';
+const HASH_DIREZIONE = 'd8c27c38459a947d2579e46d2956286b130152927063a375ce6462b9aaaf3558';
 
 const STORAGE_KEY = 'efficienza_app_url';
 const ROLE_KEY = 'efficienza_app_role';
@@ -2155,7 +2155,11 @@ function aggiornaContatoreOggi() {
   if (nostri.length === 0) {
     $('#counterDetail').textContent = 'Nessuna scansione ancora';
   } else {
-    const ultimoOra = nostri[nostri.length - 1].ora || '';
+    // Trovo il bollettino con timestamp più recente (l'array potrebbe essere ordinato in qualsiasi modo)
+    const ultimo = nostri.reduce((max, b) =>
+      (b.timestamp || '') > (max.timestamp || '') ? b : max
+    , nostri[0]);
+    const ultimoOra = (ultimo.ora || '').slice(0, 8);
     $('#counterDetail').textContent = 'Ultimo: ' + ultimoOra;
   }
 }
