@@ -1887,10 +1887,20 @@ async function gestisciScansione(barcode) {
       toast('Compila prima Operatore e Fase', 'error');
       return;
     }
-    // Validazione formato OP: deve iniziare con "OP" e avere almeno 4 caratteri
     const codeOP = String(barcode).trim();
-    if (!/^OP/i.test(codeOP) || codeOP.length < 4) {
-      toast('Formato OP non valido: "' + codeOP + '". Il barcode deve iniziare con "OP".', 'error');
+    if (codeOP.length === 0) {
+      toast('Barcode OP vuoto', 'error');
+      return;
+    }
+    // Blacklist: l'OP non deve corrispondere al barcode di un operatore o di una fase
+    const matchOp = trovaInAnagrafica(codeOP, state.anagrafica.operatori);
+    if (matchOp) {
+      toast('Hai scansionato il barcode di un operatore (' + matchOp.descrizione + '), non un OP', 'error');
+      return;
+    }
+    const matchFase = trovaInAnagrafica(codeOP, state.anagrafica.fasi);
+    if (matchFase) {
+      toast('Hai scansionato il barcode di una fase (' + matchFase.descrizione + '), non un OP', 'error');
       return;
     }
     salvaBollettino(codeOP);
