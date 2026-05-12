@@ -529,61 +529,190 @@ input, select { font-family: inherit; font-size: inherit; color: inherit; }
 }
 .chart-canvas-wrap { position: relative; height: 280px; }
 
-/* Efficienza Operatori */
-.efficienza-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+/* ═══════════════════════════════════════════════════════════════════
+   EFFICIENZA OPERATORI — design dashboard professionale
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* Summary KPI strip in alto */
+.eff-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 1px;
+  background: var(--line);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 18px;
 }
+.eff-sum-cell {
+  background: var(--surface);
+  padding: 14px 18px;
+}
+.eff-sum-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  color: var(--ink-soft);
+  margin-bottom: 6px;
+}
+.eff-sum-value {
+  font-size: 24px;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+  letter-spacing: -.5px;
+  color: var(--ink);
+  line-height: 1;
+}
+.eff-sum-value.warn { color: var(--warn); }
+.eff-sum-sub {
+  font-size: 11px;
+  color: var(--ink-soft);
+  margin-top: 4px;
+}
+
+/* Tabella operatori */
+.eff-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+.eff-table thead th {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--ink-soft);
+  text-align: left;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--line);
+  background: transparent;
+}
+.eff-table thead th.num { text-align: right; }
+.eff-table thead th.center { text-align: center; }
+.eff-table tbody tr {
+  transition: background .15s;
+}
+.eff-table tbody tr:hover {
+  background: var(--line-soft);
+}
+.eff-table tbody td {
+  padding: 14px;
+  border-bottom: 1px solid var(--line-soft);
+  vertical-align: middle;
+  font-size: 13px;
+}
+.eff-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.eff-status {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--line);
+  margin-right: 10px;
+  vertical-align: middle;
+}
+.eff-status.live {
+  background: #2e7d32;
+  box-shadow: 0 0 0 3px rgba(46,125,50,.15);
+  animation: status-pulse 2s ease-in-out infinite;
+}
+@keyframes status-pulse {
+  0%, 100% { box-shadow: 0 0 0 3px rgba(46,125,50,.15); }
+  50%      { box-shadow: 0 0 0 6px rgba(46,125,50,.05); }
+}
+
+.eff-op-name {
+  font-weight: 600;
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.eff-bar-cell {
+  width: 35%;
+  min-width: 140px;
+}
+.eff-bar-track {
+  height: 8px;
+  background: var(--line-soft);
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+.eff-bar-progress {
+  height: 100%;
+  border-radius: 4px;
+  transition: width .6s cubic-bezier(.4,0,.2,1);
+  min-width: 3px;
+}
+.eff-bar-progress.high { background: #2e7d32; }
+.eff-bar-progress.mid  { background: #e9a700; }
+.eff-bar-progress.low  { background: #c62828; }
+
+.eff-pct {
+  text-align: right;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+  font-size: 16px;
+  letter-spacing: -.5px;
+}
+.eff-pct.high { color: #2e7d32; }
+.eff-pct.mid  { color: #b07400; }
+.eff-pct.low  { color: #c62828; }
+
+.eff-num {
+  text-align: right;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 500;
+  font-size: 12px;
+  color: var(--ink);
+  white-space: nowrap;
+}
+.eff-num-sub {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--ink-soft);
+}
+
+.eff-alert-cell {
+  text-align: center;
+}
+.eff-alert-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 7px;
+  border-radius: 11px;
+  background: var(--warn-soft);
+  color: var(--warn);
+  font-size: 11px;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+}
+.eff-alert-dash {
+  color: var(--line);
+  font-size: 14px;
+}
+
 .eff-empty {
   text-align: center;
   color: var(--ink-soft);
   font-size: 13px;
-  padding: 20px 0;
+  padding: 40px 0;
 }
-.eff-row {
-  display: grid;
-  grid-template-columns: 180px 1fr 80px;
-  gap: 14px;
-  align-items: center;
-  padding: 8px 0;
-  border-bottom: 1px solid var(--line-soft);
-}
-.eff-row:last-child { border-bottom: none; }
-.eff-info { min-width: 0; }
-.eff-name { font-weight: 600; font-size: 13px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.eff-detail { font-size: 11px; color: var(--ink-soft); margin-top: 2px; }
-.eff-bar-wrap {
-  height: 14px;
-  background: var(--line-soft);
-  border-radius: 7px;
-  overflow: hidden;
-  position: relative;
-}
-.eff-bar {
-  height: 100%;
-  background: var(--accent);
-  border-radius: 7px;
-  transition: width .4s cubic-bezier(.4,0,.2,1);
-}
-.eff-bar.high { background: #2e7d32; }
-.eff-bar.mid  { background: #f9a825; }
-.eff-bar.low  { background: var(--warn); }
-.eff-percent {
-  font-weight: 700;
-  font-size: 15px;
-  text-align: right;
-  font-family: 'JetBrains Mono', monospace;
-}
-.eff-percent.high { color: #2e7d32; }
-.eff-percent.mid  { color: #c87f00; }
-.eff-percent.low  { color: var(--warn); }
 
-@media (max-width: 600px) {
-  .eff-row { grid-template-columns: 110px 1fr 60px; gap: 8px; }
-  .eff-name { font-size: 12px; }
-  .eff-detail { font-size: 10px; }
-  .eff-percent { font-size: 13px; }
+@media (max-width: 720px) {
+  .eff-table thead th { font-size: 9px; padding: 8px 6px; letter-spacing: 1px; }
+  .eff-table tbody td { padding: 10px 6px; font-size: 12px; }
+  .eff-op-name { font-size: 12px; }
+  .eff-pct { font-size: 14px; }
+  .eff-num { font-size: 11px; }
+  .eff-bar-cell { min-width: 80px; }
 }
 
 /* TC badge nel Riepilogo */
@@ -600,24 +729,6 @@ input, select { font-family: inherit; font-size: inherit; color: inherit; }
 .tc-missing {
   color: var(--ink-soft);
   font-style: italic;
-}
-.eff-tag-live {
-  display: inline-block;
-  margin-left: 6px;
-  padding: 1px 6px;
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  background: #2e7d32;
-  color: #fff;
-  border-radius: 3px;
-  vertical-align: middle;
-  animation: live-pulse 2s ease-in-out infinite;
-}
-@keyframes live-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: .55; }
 }
 .tc-mancanti-wrap {
   max-height: 360px;
@@ -1259,8 +1370,22 @@ input, select { font-family: inherit; font-size: inherit; color: inherit; }
   <div class="charts-grid">
     <div class="chart-card full">
       <div class="chart-title">Efficienza Operatori</div>
-      <div class="chart-sub">Tempo lavoro teorico vs turno disponibile (per oggi: ricalcolato in base all'orario attuale)</div>
-      <div id="efficienzaList" class="efficienza-list"></div>
+      <div class="chart-sub">Tempo lavoro teorico vs turno disponibile · turno 08:00–17:00 con 1h pausa scaglionata</div>
+      <div id="effSummary" class="eff-summary"></div>
+      <table class="eff-table">
+        <thead>
+          <tr>
+            <th>Operatore</th>
+            <th class="num">Efficienza</th>
+            <th>&nbsp;</th>
+            <th class="num">Tempo realizzato</th>
+            <th class="num">Disponibile</th>
+            <th class="num">Bollettini</th>
+            <th class="center">TC mancanti</th>
+          </tr>
+        </thead>
+        <tbody id="efficienzaList"></tbody>
+      </table>
     </div>
     <div class="chart-card full">
       <div class="chart-title">⚠️ TC Mancanti</div>
@@ -1486,19 +1611,28 @@ function getTCBollettino(b) {
 const TURNO_SECONDI = 8 * 3600;
 
 // Secondi lavorabili dall'inizio del turno fino all'ora attuale (per giorno corrente)
-// 08:00-13:00 (5h) + pausa 13:00-14:00 + 14:00-17:00 (3h) = 8h totali
+// Orari turno: 08:00 → 17:00 con 1h di pausa pranzo SCAGLIONATA (alcuni 12-13, altri 13-14)
+// Tra 12:00 e 14:00 il tempo "disponibile" cresce a METÀ ritmo (in media metà degli operatori è in pausa)
+// A fine turno (17:00) il totale fa 8h esatte per tutti
 function secondiLavorabilitaOggi() {
   const now = new Date();
   const oraSec = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
-  const INIZIO       = 8  * 3600;   // 08:00
-  const PRANZO_IN    = 13 * 3600;   // 13:00
-  const PRANZO_OUT   = 14 * 3600;   // 14:00
-  const FINE         = 17 * 3600;   // 17:00
+  const INIZIO     = 8  * 3600;  // 08:00
+  const PAUSA_IN   = 12 * 3600;  // 12:00 inizio fascia pause scaglionate
+  const PAUSA_OUT  = 14 * 3600;  // 14:00 fine fascia pause scaglionate
+  const FINE       = 17 * 3600;  // 17:00
+
   if (oraSec <= INIZIO)    return 0;
-  if (oraSec <= PRANZO_IN) return oraSec - INIZIO;          // mattina in corso
-  if (oraSec <= PRANZO_OUT) return PRANZO_IN - INIZIO;       // bloccato a 5h durante pausa
-  if (oraSec <= FINE)      return (PRANZO_IN - INIZIO) + (oraSec - PRANZO_OUT); // pomeriggio in corso
-  return TURNO_SECONDI;                                       // turno finito
+  if (oraSec <= PAUSA_IN)  return oraSec - INIZIO;     // mattina piena (8-12)
+  if (oraSec <= PAUSA_OUT) {
+    // Fascia 12-14: cresce a metà ritmo
+    return (PAUSA_IN - INIZIO) + (oraSec - PAUSA_IN) / 2;
+  }
+  if (oraSec <= FINE) {
+    // Dopo le 14: 4h mattina + 1h "compressa" (la pausa scaglionata) + pomeriggio
+    return (PAUSA_IN - INIZIO) + (PAUSA_OUT - PAUSA_IN) / 2 + (oraSec - PAUSA_OUT);
+  }
+  return TURNO_SECONDI;  // dopo le 17:00 = 8h piene
 }
 
 // Formatta secondi in "Xh Ym" oppure "Xm Ys"
@@ -2624,16 +2758,19 @@ function refreshDashboard() {
 // ─── Sezione Efficienza Operatori ─────────────────────────────────────────
 function refreshEfficienza(data) {
   const container = $('#efficienzaList');
+  const summary = $('#effSummary');
   if (!container) return;
+
   if (!data || data.length === 0) {
-    container.innerHTML = '<div class="eff-empty">Nessun dato per il periodo selezionato</div>';
+    container.innerHTML = '<tr><td colspan="7" class="eff-empty">Nessun dato per il periodo selezionato</td></tr>';
+    if (summary) summary.innerHTML = '';
     renderTcMancanti([]);
     return;
   }
 
   const oggi = fmtDate(new Date());
 
-  // Raggruppo per operatore + giorni distinti + somma TC
+  // Raggruppo per operatore
   const perOp = {};
   data.forEach(b => {
     const k = b.operatore_id;
@@ -2655,45 +2792,71 @@ function refreshEfficienza(data) {
   });
 
   const operatori = Object.values(perOp).map(o => {
-    // Tempo disponibile DINAMICO: per ogni giorno
-    //  - se è oggi → seconds dall'inizio turno fino ad ora
-    //  - se è un giorno passato → 8h piene (giornata completa)
     let tempoDisponibile = 0;
     o.giorni.forEach(g => {
       tempoDisponibile += (g === oggi) ? secondiLavorabilitaOggi() : TURNO_SECONDI;
     });
     const efficienza = tempoDisponibile > 0 ? (o.tcTotale / tempoDisponibile) * 100 : 0;
-    const haOggi = o.giorni.has(oggi);
     return {
       id: o.id, nome: o.nome, nGiorni: o.giorni.size, tcTotale: o.tcTotale,
       nBollettini: o.nBollettini, nTcMancanti: o.nTcMancanti,
-      tempoDisponibile, efficienza, haOggi
+      tempoDisponibile, efficienza, haOggi: o.giorni.has(oggi)
     };
   }).sort((a, b) => b.efficienza - a.efficienza);
 
-  const html = operatori.map(o => {
+  // Render righe tabella
+  container.innerHTML = operatori.map(o => {
     const cls = o.efficienza >= 85 ? 'high' : o.efficienza >= 70 ? 'mid' : 'low';
     const w = Math.max(0, Math.min(100, o.efficienza));
-    const mancanti = o.nTcMancanti > 0 ? ' · ⚠️ ' + o.nTcMancanti + ' senza TC' : '';
-    const inCorso = o.haOggi ? ' <span class="eff-tag-live">live</span>' : '';
-    return ''
-      + '<div class="eff-row">'
-      +   '<div class="eff-info">'
-      +     '<div class="eff-name">' + o.nome + inCorso + '</div>'
-      +     '<div class="eff-detail">' + o.nBollettini + ' bollett. · ' + o.nGiorni + 'g · '
-      +       formatSecondi(o.tcTotale) + ' / ' + formatSecondi(o.tempoDisponibile) + mancanti
-      +     '</div>'
-      +   '</div>'
-      +   '<div class="eff-bar-wrap">'
-      +     '<div class="eff-bar ' + cls + '" style="width:' + w + '%"></div>'
-      +   '</div>'
-      +   '<div class="eff-percent ' + cls + '">' + o.efficienza.toFixed(1) + '%</div>'
-      + '</div>';
+    const statusCls = o.haOggi ? 'live' : '';
+    const alertCell = o.nTcMancanti > 0
+      ? '<span class="eff-alert-badge" title="' + o.nTcMancanti + ' bollettini con codice senza TC nel database">' + o.nTcMancanti + '</span>'
+      : '<span class="eff-alert-dash">—</span>';
+
+    return '<tr>'
+      + '<td><span class="eff-status ' + statusCls + '"></span><span class="eff-op-name">' + o.nome + '</span></td>'
+      + '<td class="eff-pct ' + cls + '">' + o.efficienza.toFixed(1) + '%</td>'
+      + '<td class="eff-bar-cell"><div class="eff-bar-track"><div class="eff-bar-progress ' + cls + '" style="width:' + w + '%"></div></div></td>'
+      + '<td class="eff-num">' + formatSecondi(o.tcTotale) + '</td>'
+      + '<td class="eff-num-sub" style="text-align:right">' + formatSecondi(o.tempoDisponibile) + '</td>'
+      + '<td class="eff-num">' + o.nBollettini + '</td>'
+      + '<td class="eff-alert-cell">' + alertCell + '</td>'
+      + '</tr>';
   }).join('');
 
-  container.innerHTML = html;
+  // Summary KPI in alto
+  if (summary) {
+    const totBollettini = data.length;
+    const totTcMancanti = data.filter(b => getTCBollettino(b) == null).length;
+    const totTcTotale = operatori.reduce((s, o) => s + o.tcTotale, 0);
+    const totDisp = operatori.reduce((s, o) => s + o.tempoDisponibile, 0);
+    const effMedia = totDisp > 0 ? (totTcTotale / totDisp) * 100 : 0;
+    const effClass = effMedia >= 85 ? 'high' : effMedia >= 70 ? 'mid' : 'low';
+    const tcMancCls = totTcMancanti > 0 ? 'warn' : '';
 
-  // Aggiorna la lista dei TC mancanti
+    summary.innerHTML = ''
+      + '<div class="eff-sum-cell">'
+      +   '<div class="eff-sum-label">Efficienza media</div>'
+      +   '<div class="eff-sum-value eff-pct ' + effClass + '" style="font-size:24px">' + effMedia.toFixed(1) + '%</div>'
+      +   '<div class="eff-sum-sub">' + operatori.length + ' operatori attivi</div>'
+      + '</div>'
+      + '<div class="eff-sum-cell">'
+      +   '<div class="eff-sum-label">Tempo realizzato</div>'
+      +   '<div class="eff-sum-value">' + formatSecondi(totTcTotale) + '</div>'
+      +   '<div class="eff-sum-sub">su ' + formatSecondi(totDisp) + ' disponibili</div>'
+      + '</div>'
+      + '<div class="eff-sum-cell">'
+      +   '<div class="eff-sum-label">Bollettini totali</div>'
+      +   '<div class="eff-sum-value">' + totBollettini + '</div>'
+      +   '<div class="eff-sum-sub">nel periodo selezionato</div>'
+      + '</div>'
+      + '<div class="eff-sum-cell">'
+      +   '<div class="eff-sum-label">TC mancanti</div>'
+      +   '<div class="eff-sum-value ' + tcMancCls + '">' + totTcMancanti + '</div>'
+      +   '<div class="eff-sum-sub">' + (totBollettini > 0 ? ((totTcMancanti / totBollettini) * 100).toFixed(1) + '% del totale' : '—') + '</div>'
+      + '</div>';
+  }
+
   renderTcMancanti(data);
 }
 
