@@ -601,6 +601,40 @@ input, select { font-family: inherit; font-size: inherit; color: inherit; }
   color: var(--ink-soft);
   font-style: italic;
 }
+.eff-tag-live {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  background: #2e7d32;
+  color: #fff;
+  border-radius: 3px;
+  vertical-align: middle;
+  animation: live-pulse 2s ease-in-out infinite;
+}
+@keyframes live-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .55; }
+}
+.tc-mancanti-wrap {
+  max-height: 360px;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.tc-mancanti-wrap .data-table {
+  margin: 0;
+  box-shadow: none;
+  border-radius: 0;
+}
+.tc-mancanti-wrap .data-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
 
 /* ───────────── MODAL ───────────── */
 .modal-backdrop {
@@ -1225,8 +1259,25 @@ input, select { font-family: inherit; font-size: inherit; color: inherit; }
   <div class="charts-grid">
     <div class="chart-card full">
       <div class="chart-title">Efficienza Operatori</div>
-      <div class="chart-sub">Tempo lavoro teorico vs turno disponibile (8h = 28.800 sec/giorno)</div>
+      <div class="chart-sub">Tempo lavoro teorico vs turno disponibile (per oggi: ricalcolato in base all'orario attuale)</div>
       <div id="efficienzaList" class="efficienza-list"></div>
+    </div>
+    <div class="chart-card full">
+      <div class="chart-title">⚠️ TC Mancanti</div>
+      <div class="chart-sub">Codici componenti scansionati senza tempo ciclo nel DB Tempi_Standard — vanno aggiunti per un calcolo efficienza accurato</div>
+      <div class="tc-mancanti-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Codice</th>
+              <th>Fase</th>
+              <th style="text-align:center">Conta</th>
+              <th>Operatori coinvolti</th>
+            </tr>
+          </thead>
+          <tbody id="tcMancantiBody"></tbody>
+        </table>
+      </div>
     </div>
     <div class="chart-card">
       <div class="chart-title">Classifica Operatori</div>
@@ -1433,6 +1484,22 @@ function getTCBollettino(b) {
 
 // Tempo turno effettivo (08:00-17:00 - 1h pausa = 8h = 28800s)
 const TURNO_SECONDI = 8 * 3600;
+
+// Secondi lavorabili dall'inizio del turno fino all'ora attuale (per giorno corrente)
+// 08:00-13:00 (5h) + pausa 13:00-14:00 + 14:00-17:00 (3h) = 8h totali
+function secondiLavorabilitaOggi() {
+  const now = new Date();
+  const oraSec = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
+  const INIZIO       = 8  * 3600;   // 08:00
+  const PRANZO_IN    = 13 * 3600;   // 13:00
+  const PRANZO_OUT   = 14 * 3600;   // 14:00
+  const FINE         = 17 * 3600;   // 17:00
+  if (oraSec <= INIZIO)    return 0;
+  if (oraSec <= PRANZO_IN) return oraSec - INIZIO;          // mattina in corso
+  if (oraSec <= PRANZO_OUT) return PRANZO_IN - INIZIO;       // bloccato a 5h durante pausa
+  if (oraSec <= FINE)      return (PRANZO_IN - INIZIO) + (oraSec - PRANZO_OUT); // pomeriggio in corso
+  return TURNO_SECONDI;                                       // turno finito
+}
 
 // Formatta secondi in "Xh Ym" oppure "Xm Ys"
 function formatSecondi(s) {
@@ -2560,8 +2627,11 @@ function refreshEfficienza(data) {
   if (!container) return;
   if (!data || data.length === 0) {
     container.innerHTML = '<div class="eff-empty">Nessun dato per il periodo selezionato</div>';
+    renderTcMancanti([]);
     return;
   }
+
+  const oggi = fmtDate(new Date());
 
   // Raggruppo per operatore + giorni distinti + somma TC
   const perOp = {};
@@ -2585,13 +2655,19 @@ function refreshEfficienza(data) {
   });
 
   const operatori = Object.values(perOp).map(o => {
-    const nGiorni = o.giorni.size;
-    const tempoDisponibile = nGiorni * TURNO_SECONDI;
+    // Tempo disponibile DINAMICO: per ogni giorno
+    //  - se è oggi → seconds dall'inizio turno fino ad ora
+    //  - se è un giorno passato → 8h piene (giornata completa)
+    let tempoDisponibile = 0;
+    o.giorni.forEach(g => {
+      tempoDisponibile += (g === oggi) ? secondiLavorabilitaOggi() : TURNO_SECONDI;
+    });
     const efficienza = tempoDisponibile > 0 ? (o.tcTotale / tempoDisponibile) * 100 : 0;
+    const haOggi = o.giorni.has(oggi);
     return {
-      id: o.id, nome: o.nome, nGiorni, tcTotale: o.tcTotale,
+      id: o.id, nome: o.nome, nGiorni: o.giorni.size, tcTotale: o.tcTotale,
       nBollettini: o.nBollettini, nTcMancanti: o.nTcMancanti,
-      tempoDisponibile, efficienza
+      tempoDisponibile, efficienza, haOggi
     };
   }).sort((a, b) => b.efficienza - a.efficienza);
 
@@ -2599,10 +2675,11 @@ function refreshEfficienza(data) {
     const cls = o.efficienza >= 85 ? 'high' : o.efficienza >= 70 ? 'mid' : 'low';
     const w = Math.max(0, Math.min(100, o.efficienza));
     const mancanti = o.nTcMancanti > 0 ? ' · ⚠️ ' + o.nTcMancanti + ' senza TC' : '';
+    const inCorso = o.haOggi ? ' <span class="eff-tag-live">live</span>' : '';
     return ''
       + '<div class="eff-row">'
       +   '<div class="eff-info">'
-      +     '<div class="eff-name">' + o.nome + '</div>'
+      +     '<div class="eff-name">' + o.nome + inCorso + '</div>'
       +     '<div class="eff-detail">' + o.nBollettini + ' bollett. · ' + o.nGiorni + 'g · '
       +       formatSecondi(o.tcTotale) + ' / ' + formatSecondi(o.tempoDisponibile) + mancanti
       +     '</div>'
@@ -2615,6 +2692,45 @@ function refreshEfficienza(data) {
   }).join('');
 
   container.innerHTML = html;
+
+  // Aggiorna la lista dei TC mancanti
+  renderTcMancanti(data);
+}
+
+// ─── Card TC Mancanti ─────────────────────────────────────────────────────
+function renderTcMancanti(data) {
+  const container = $('#tcMancantiBody');
+  if (!container) return;
+  const counter = {};
+  data.forEach(b => {
+    const tc = getTCBollettino(b);
+    if (tc == null) {
+      const key = b.fase_id + '|' + b.op_barcode;
+      if (!counter[key]) {
+        counter[key] = {
+          codice: b.op_barcode,
+          fase_id: b.fase_id,
+          fase_descrizione: b.fase_descrizione,
+          count: 0,
+          operatori: new Set()
+        };
+      }
+      counter[key].count++;
+      counter[key].operatori.add(b.operatore_nome);
+    }
+  });
+  const lista = Object.values(counter).sort((a, b) => b.count - a.count);
+
+  if (lista.length === 0) {
+    container.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--ink-soft);padding:18px;font-size:13px">Nessun TC mancante 🎉 Tutti i bollettini hanno il TC associato.</td></tr>';
+    return;
+  }
+  container.innerHTML = lista.map(x => '<tr>'
+    + '<td class="mono">' + x.codice + '</td>'
+    + '<td><span class="badge">' + x.fase_id + '</span> ' + x.fase_descrizione + '</td>'
+    + '<td style="text-align:center"><strong>' + x.count + '</strong></td>'
+    + '<td style="font-size:11px;color:var(--ink-soft)">' + Array.from(x.operatori).join(', ') + '</td>'
+    + '</tr>').join('');
 }
 
 function chartBaseOpts() {
