@@ -565,6 +565,9 @@ input, select { font-family: inherit; font-size: inherit; color: inherit; }
   line-height: 1;
 }
 .eff-sum-value.warn { color: var(--warn); }
+.eff-sum-value.high { color: #2e7d32; }
+.eff-sum-value.mid  { color: #b07400; }
+.eff-sum-value.low  { color: #c62828; }
 .eff-sum-sub {
   font-size: 11px;
   color: var(--ink-soft);
@@ -2834,16 +2837,24 @@ function refreshEfficienza(data) {
     const effClass = effMedia >= 85 ? 'high' : effMedia >= 70 ? 'mid' : 'low';
     const tcMancCls = totTcMancanti > 0 ? 'warn' : '';
 
+    // Tempo medio disponibile per operatore
+    const avgDispOp = operatori.length > 0 ? totDisp / operatori.length : 0;
+
     summary.innerHTML = ''
       + '<div class="eff-sum-cell">'
       +   '<div class="eff-sum-label">Efficienza media</div>'
-      +   '<div class="eff-sum-value eff-pct ' + effClass + '" style="font-size:24px">' + effMedia.toFixed(1) + '%</div>'
+      +   '<div class="eff-sum-value ' + effClass + '">' + effMedia.toFixed(1) + '%</div>'
       +   '<div class="eff-sum-sub">' + operatori.length + ' operatori attivi</div>'
       + '</div>'
       + '<div class="eff-sum-cell">'
       +   '<div class="eff-sum-label">Tempo realizzato</div>'
       +   '<div class="eff-sum-value">' + formatSecondi(totTcTotale) + '</div>'
-      +   '<div class="eff-sum-sub">su ' + formatSecondi(totDisp) + ' disponibili</div>'
+      +   '<div class="eff-sum-sub">somma tra tutti gli operatori</div>'
+      + '</div>'
+      + '<div class="eff-sum-cell">'
+      +   '<div class="eff-sum-label">Tempo disponibile</div>'
+      +   '<div class="eff-sum-value">' + formatSecondi(avgDispOp) + '</div>'
+      +   '<div class="eff-sum-sub">a testa · ' + formatSecondi(totDisp) + ' totali</div>'
       + '</div>'
       + '<div class="eff-sum-cell">'
       +   '<div class="eff-sum-label">Bollettini totali</div>'
