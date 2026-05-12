@@ -1284,6 +1284,12 @@ input, select { font-family: inherit; font-size: inherit; color: inherit; }
 // ═══════════════════════════════════════════════════════════════════════════
 const DEFAULT_BACKEND_URL = 'https://script.google.com/macros/s/AKfycbyS-OLPLKVhVBanu7M-Jc9BOGH44SHLy_qaPln-Xao7xiOINnycnyKHymueuEeACyd6Cg/exec';
 
+// URL backend deprecati: se trovo uno di questi nel localStorage del dispositivo,
+// lo aggiorno automaticamente con il default attuale (no intervento utente)
+const DEPRECATED_BACKEND_URLS = [
+  'https://script.google.com/macros/s/AKfycbwSSX040CfKQtvwXhJ6M-UQ9uXCKO2wB_X1F7iM0YdZNham5Wqsu0ryROiIuPLn1TVjvA/exec'
+];
+
 // Hash SHA-256 delle password — modifica questi se vuoi cambiare le password
 // (usa un tool online tipo "sha256 calculator" e incolla qui il risultato in lowercase)
 const HASH_OPERATORE = 'bed2ef25a3c07d7e9a978294bd1b6026fb13b78e94da9c2315af3743a2671b0c';
@@ -1294,6 +1300,14 @@ const ROLE_KEY = 'efficienza_app_role';
 const ROLE_EXPIRY_KEY = 'efficienza_app_role_expiry';
 const ROLE_DURATION_MS = 12 * 60 * 60 * 1000; // 12 ore di sessione persistente
 const PENDING_QUEUE_KEY = 'efficienza_pending_queue';
+
+// Migrazione automatica: se nel localStorage c'è un URL deprecato, lo aggiorno
+const _storedUrl = localStorage.getItem(STORAGE_KEY);
+if (_storedUrl && DEPRECATED_BACKEND_URLS.indexOf(_storedUrl) >= 0) {
+  console.log('[migration] URL backend deprecato, aggiorno automaticamente');
+  localStorage.setItem(STORAGE_KEY, DEFAULT_BACKEND_URL);
+}
+
 let backendUrl = localStorage.getItem(STORAGE_KEY) || DEFAULT_BACKEND_URL;
 
 function getRoleStored() {
