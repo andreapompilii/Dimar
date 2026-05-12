@@ -529,6 +529,79 @@ input, select { font-family: inherit; font-size: inherit; color: inherit; }
 }
 .chart-canvas-wrap { position: relative; height: 280px; }
 
+/* Efficienza Operatori */
+.efficienza-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.eff-empty {
+  text-align: center;
+  color: var(--ink-soft);
+  font-size: 13px;
+  padding: 20px 0;
+}
+.eff-row {
+  display: grid;
+  grid-template-columns: 180px 1fr 80px;
+  gap: 14px;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line-soft);
+}
+.eff-row:last-child { border-bottom: none; }
+.eff-info { min-width: 0; }
+.eff-name { font-weight: 600; font-size: 13px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.eff-detail { font-size: 11px; color: var(--ink-soft); margin-top: 2px; }
+.eff-bar-wrap {
+  height: 14px;
+  background: var(--line-soft);
+  border-radius: 7px;
+  overflow: hidden;
+  position: relative;
+}
+.eff-bar {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 7px;
+  transition: width .4s cubic-bezier(.4,0,.2,1);
+}
+.eff-bar.high { background: #2e7d32; }
+.eff-bar.mid  { background: #f9a825; }
+.eff-bar.low  { background: var(--warn); }
+.eff-percent {
+  font-weight: 700;
+  font-size: 15px;
+  text-align: right;
+  font-family: 'JetBrains Mono', monospace;
+}
+.eff-percent.high { color: #2e7d32; }
+.eff-percent.mid  { color: #c87f00; }
+.eff-percent.low  { color: var(--warn); }
+
+@media (max-width: 600px) {
+  .eff-row { grid-template-columns: 110px 1fr 60px; gap: 8px; }
+  .eff-name { font-size: 12px; }
+  .eff-detail { font-size: 10px; }
+  .eff-percent { font-size: 13px; }
+}
+
+/* TC badge nel Riepilogo */
+.tc-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 600;
+}
+.tc-missing {
+  color: var(--ink-soft);
+  font-style: italic;
+}
+
 /* ───────────── MODAL ───────────── */
 .modal-backdrop {
   display: none;
@@ -992,7 +1065,7 @@ input, select { font-family: inherit; font-size: inherit; color: inherit; }
 <!-- ═══════════════════════ PAGINA: INSERIMENTO ═══════════════════════ -->
 <section class="page active" id="page-inserimento">
   <h1 class="page-title">Inserimento Bollettini</h1>
-  <p class="page-sub">Scansiona in ordine: ① Operatore → ② Fase → ③ Ordine di Produzione</p>
+  <p class="page-sub">Scansiona in ordine: ① Operatore → ② Fase → ③ Codice Componente</p>
 
   <div class="scan-stack">
     <button class="scan-btn" id="btn-operatore" data-step="operatore">
@@ -1024,7 +1097,7 @@ input, select { font-family: inherit; font-size: inherit; color: inherit; }
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><line x1="7" y1="9" x2="7" y2="15"/><line x1="11" y1="9" x2="11" y2="15"/><line x1="15" y1="9" x2="15" y2="15"/><line x1="17" y1="9" x2="17" y2="15"/></svg>
       </div>
       <div class="scan-info">
-        <div class="scan-label">③ Ordine di Produzione</div>
+        <div class="scan-label">③ Codice Componente</div>
         <div class="scan-value placeholder" id="val-op">Compila prima i campi sopra</div>
       </div>
       <div class="scan-status" id="status-op"></div>
@@ -1099,7 +1172,8 @@ input, select { font-family: inherit; font-size: inherit; color: inherit; }
             <th>Ora</th>
             <th>Operatore</th>
             <th>Fase</th>
-            <th>OP</th>
+            <th>Componente</th>
+            <th>TC</th>
           </tr>
         </thead>
         <tbody id="tbodyRiepilogo"></tbody>
@@ -1149,6 +1223,11 @@ input, select { font-family: inherit; font-size: inherit; color: inherit; }
   </div>
 
   <div class="charts-grid">
+    <div class="chart-card full">
+      <div class="chart-title">Efficienza Operatori</div>
+      <div class="chart-sub">Tempo lavoro teorico vs turno disponibile (8h = 28.800 sec/giorno)</div>
+      <div id="efficienzaList" class="efficienza-list"></div>
+    </div>
     <div class="chart-card">
       <div class="chart-title">Classifica Operatori</div>
       <div class="chart-sub">Top per numero di OP chiusi</div>
@@ -1332,6 +1411,7 @@ function clearRoleStored() {
 const state = {
   anagrafica: { operatori: [], fasi: [] },
   bollettini: [],
+  tempi: [],     // [{ codice, fase_id, tc, componente, prodotto }]
   scan: { operatore: null, fase: null },
   currentScanStep: null,
   currentPeriod: 'oggi',
@@ -1340,6 +1420,30 @@ const state = {
 
 let codeReader = null;
 let charts = { operatori: null, fasi: null, trend: null };
+
+// Lookup TC dato un bollettino (op_barcode = codice componente)
+function getTCBollettino(b) {
+  if (!b || !state.tempi || state.tempi.length === 0) return null;
+  const t = state.tempi.find(x =>
+    x.codice === String(b.op_barcode).trim() &&
+    x.fase_id === String(b.fase_id).trim()
+  );
+  return t ? t.tc : null;
+}
+
+// Tempo turno effettivo (08:00-17:00 - 1h pausa = 8h = 28800s)
+const TURNO_SECONDI = 8 * 3600;
+
+// Formatta secondi in "Xh Ym" oppure "Xm Ys"
+function formatSecondi(s) {
+  s = Math.round(s || 0);
+  if (s < 60) return s + 's';
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  if (h > 0) return h + 'h ' + String(m).padStart(2,'0') + 'm';
+  return m + 'm ' + String(sec).padStart(2,'0') + 's';
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // UTILITIES
@@ -1458,9 +1562,9 @@ function avviaPolling() {
       // Bollettini: sempre (ogni 5 min)
       const ok = await caricaBollettini();
       if (!ok) return;
-      // Anagrafica: ogni 5 min (per reattività a modifiche)
+      // Anagrafica + Tempi: ogni 5 min (per essere reattivi a modifiche)
       if (pollingCounter % ANAGRAFICA_EVERY_N_POLLS === 0) {
-        await caricaAnagrafica();
+        await Promise.all([caricaAnagrafica(), caricaTempi()]);
       }
       // Aggiorna UI
       aggiornaContatoreOggi();
@@ -1602,6 +1706,7 @@ $('#btnLogout').addEventListener('click', () => {
 // ═══════════════════════════════════════════════════════════════════════════
 const CACHE_ANAGRAFICA_KEY = 'efficienza_cache_anagrafica';
 const CACHE_BOLLETTINI_KEY = 'efficienza_cache_bollettini';
+const CACHE_TEMPI_KEY      = 'efficienza_cache_tempi';
 const CACHE_TS_KEY = 'efficienza_cache_ts';
 
 async function apiGet(action, params) {
@@ -1643,6 +1748,13 @@ function caricaCacheLocale() {
         state.bollettini = parsed;
       }
     }
+    const t = localStorage.getItem(CACHE_TEMPI_KEY);
+    if (t) {
+      const parsed = JSON.parse(t);
+      if (Array.isArray(parsed)) {
+        state.tempi = parsed;
+      }
+    }
   } catch (e) {
     console.warn('Errore lettura cache:', e);
   }
@@ -1662,6 +1774,12 @@ function salvaCacheBollettini() {
     const toSave = state.bollettini.slice(0, 1000);
     localStorage.setItem(CACHE_BOLLETTINI_KEY, JSON.stringify(toSave));
     localStorage.setItem(CACHE_TS_KEY, String(Date.now()));
+  } catch (e) {}
+}
+
+function salvaCacheTempi() {
+  try {
+    localStorage.setItem(CACHE_TEMPI_KEY, JSON.stringify(state.tempi));
   } catch (e) {}
 }
 
@@ -1695,6 +1813,19 @@ async function caricaBollettini() {
   } catch (e) {
     setStatusDot('err');
     console.error('Bollettini:', e);
+    return false;
+  }
+}
+
+async function caricaTempi() {
+  try {
+    const r = await apiGet('tempi');
+    if (!r.ok) throw new Error(r.error || 'Errore caricamento tempi');
+    state.tempi = r.tempi || [];
+    salvaCacheTempi();
+    return true;
+  } catch (e) {
+    console.warn('Tempi:', e);
     return false;
   }
 }
@@ -1742,7 +1873,7 @@ async function apriScanner(step) {
   const titles = {
     operatore: 'Scansiona Barcode Operatore',
     fase:      'Scansiona Barcode Fase',
-    op:        'Scansiona Barcode Ordine di Produzione'
+    op:        'Scansiona Barcode Codice Componente'
   };
   $('#scannerTitle').textContent = titles[step];
   $('#scannerError').classList.remove('show');
@@ -1972,7 +2103,7 @@ document.addEventListener('click', (e) => {
 function abilitaOPSeProto() {
   if (state.scan.operatore && state.scan.fase) {
     $('#btn-op').disabled = false;
-    $('#val-op').textContent = 'Tocca per scansionare l\'OP';
+    $('#val-op').textContent = 'Tocca per scansionare il componente';
   }
 }
 
@@ -2089,7 +2220,7 @@ window.addEventListener('online', () => {
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden && state.role && backendUrl) {
     console.log('[wake] tablet attivo, refresh dati');
-    Promise.all([caricaAnagrafica(), caricaBollettini()]).then(() => {
+    Promise.all([caricaAnagrafica(), caricaBollettini(), caricaTempi()]).then(() => {
       aggiornaContatoreOggi();
       const activeTab = document.querySelector('.tab-btn.active');
       const t = activeTab ? activeTab.dataset.tab : null;
@@ -2292,13 +2423,20 @@ function refreshRiepilogo() {
   } else {
     $('#emptyRiepilogo').style.display = 'none';
     $('#tableRiepilogo').style.display = 'table';
-    const html = data.map(b => '<tr>'
-      + '<td>' + fmtDateIT(b.data) + '</td>'
-      + '<td class="mono">' + (b.ora || '').slice(0,5) + '</td>'
-      + '<td><span class="badge">' + b.operatore_id + '</span> ' + b.operatore_nome + '</td>'
-      + '<td><span class="badge">' + b.fase_id + '</span> ' + b.fase_descrizione + '</td>'
-      + '<td class="mono">' + b.op_barcode + '</td>'
-      + '</tr>').join('');
+    const html = data.map(b => {
+      const tc = getTCBollettino(b);
+      const tcCell = tc != null
+        ? '<span class="tc-badge">' + Math.round(tc) + 's</span>'
+        : '<span class="tc-missing" title="TC non disponibile per questo Codice × Fase">—</span>';
+      return '<tr>'
+        + '<td>' + fmtDateIT(b.data) + '</td>'
+        + '<td class="mono">' + (b.ora || '').slice(0,5) + '</td>'
+        + '<td><span class="badge">' + b.operatore_id + '</span> ' + b.operatore_nome + '</td>'
+        + '<td><span class="badge">' + b.fase_id + '</span> ' + b.fase_descrizione + '</td>'
+        + '<td class="mono">' + b.op_barcode + '</td>'
+        + '<td>' + tcCell + '</td>'
+        + '</tr>';
+    }).join('');
     tb.innerHTML = html;
   }
 
@@ -2333,7 +2471,8 @@ $('#btnExport').addEventListener('click', () => {
     'Operatore':       b.operatore_nome,
     'ID Fase':         b.fase_id,
     'Fase':            b.fase_descrizione,
-    'OP':              b.op_barcode
+    'Codice_Componente':  b.op_barcode,
+    'TC_Secondi':          getTCBollettino(b) ?? ''
   }));
   const ws = XLSX.utils.json_to_sheet(rows);
   // larghezza colonne
@@ -2412,6 +2551,70 @@ function refreshDashboard() {
   drawChartOperatori(opEntries.map(e => e[0]), opEntries.map(e => e[1]));
   drawChartFasi(faEntries.map(e => e[0]), faEntries.map(e => e[1]));
   drawChartTrend(trendDays.map(fmtDateIT), trendVals);
+  refreshEfficienza(data);
+}
+
+// ─── Sezione Efficienza Operatori ─────────────────────────────────────────
+function refreshEfficienza(data) {
+  const container = $('#efficienzaList');
+  if (!container) return;
+  if (!data || data.length === 0) {
+    container.innerHTML = '<div class="eff-empty">Nessun dato per il periodo selezionato</div>';
+    return;
+  }
+
+  // Raggruppo per operatore + giorni distinti + somma TC
+  const perOp = {};
+  data.forEach(b => {
+    const k = b.operatore_id;
+    if (!perOp[k]) {
+      perOp[k] = {
+        id: k,
+        nome: b.operatore_nome,
+        giorni: new Set(),
+        tcTotale: 0,
+        nBollettini: 0,
+        nTcMancanti: 0
+      };
+    }
+    perOp[k].giorni.add(b.data);
+    perOp[k].nBollettini++;
+    const tc = getTCBollettino(b);
+    if (tc != null) perOp[k].tcTotale += tc;
+    else perOp[k].nTcMancanti++;
+  });
+
+  const operatori = Object.values(perOp).map(o => {
+    const nGiorni = o.giorni.size;
+    const tempoDisponibile = nGiorni * TURNO_SECONDI;
+    const efficienza = tempoDisponibile > 0 ? (o.tcTotale / tempoDisponibile) * 100 : 0;
+    return {
+      id: o.id, nome: o.nome, nGiorni, tcTotale: o.tcTotale,
+      nBollettini: o.nBollettini, nTcMancanti: o.nTcMancanti,
+      tempoDisponibile, efficienza
+    };
+  }).sort((a, b) => b.efficienza - a.efficienza);
+
+  const html = operatori.map(o => {
+    const cls = o.efficienza >= 85 ? 'high' : o.efficienza >= 70 ? 'mid' : 'low';
+    const w = Math.max(0, Math.min(100, o.efficienza));
+    const mancanti = o.nTcMancanti > 0 ? ' · ⚠️ ' + o.nTcMancanti + ' senza TC' : '';
+    return ''
+      + '<div class="eff-row">'
+      +   '<div class="eff-info">'
+      +     '<div class="eff-name">' + o.nome + '</div>'
+      +     '<div class="eff-detail">' + o.nBollettini + ' bollett. · ' + o.nGiorni + 'g · '
+      +       formatSecondi(o.tcTotale) + ' / ' + formatSecondi(o.tempoDisponibile) + mancanti
+      +     '</div>'
+      +   '</div>'
+      +   '<div class="eff-bar-wrap">'
+      +     '<div class="eff-bar ' + cls + '" style="width:' + w + '%"></div>'
+      +   '</div>'
+      +   '<div class="eff-percent ' + cls + '">' + o.efficienza.toFixed(1) + '%</div>'
+      + '</div>';
+  }).join('');
+
+  container.innerHTML = html;
 }
 
 function chartBaseOpts() {
@@ -2516,10 +2719,11 @@ async function caricaDatiIniziali(silenzioso) {
   }
   if (!silenzioso) showLoading('Sincronizzazione...');
 
-  // PARALLELO: anagrafica e bollettini in contemporanea (50% più veloce)
-  const [ok1, ok2] = await Promise.all([
+  // PARALLELO: anagrafica, bollettini, tempi in contemporanea
+  const [ok1, ok2, ok3] = await Promise.all([
     caricaAnagrafica(),
-    caricaBollettini()
+    caricaBollettini(),
+    caricaTempi()
   ]);
 
   if (!silenzioso) hideLoading();
