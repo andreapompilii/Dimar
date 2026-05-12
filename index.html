@@ -1971,22 +1971,7 @@ async function salvaBollettino(opBarcode) {
     op_barcode:        String(opBarcode).trim()
   };
 
-  // CHECK DUPLICATO LATO CLIENT (istantaneo, no server)
-  const oggi = fmtDate(new Date());
-  const giaPresente = state.bollettini.find(b =>
-    b.data === oggi &&
-    b.fase_id === payload.fase_id &&
-    b.op_barcode === payload.op_barcode
-  );
-  if (giaPresente) {
-    showAlert(
-      'OP già registrato',
-      'Questo OP è già stato registrato oggi sulla fase "' + payload.fase_descrizione +
-      '" da ' + giaPresente.operatore_nome + ' alle ' + (giaPresente.ora || ''),
-      true
-    );
-    return;
-  }
+  // Check duplicato RIMOSSO: i codici possono ripetersi nello stesso giorno
 
   // OPTIMISTIC UI: aggiungo subito allo state e resetto il form
   const ora = new Date();
@@ -2007,13 +1992,6 @@ async function salvaBollettino(opBarcode) {
 
   // SALVATAGGIO IN BACKGROUND
   apiPost(payload).then(r => {
-    if (r.duplicato) {
-      const idx = state.bollettini.indexOf(bollettinoLocale);
-      if (idx >= 0) state.bollettini.splice(idx, 1);
-      aggiornaContatoreOggi();
-      showAlert('OP già registrato', r.messaggio || 'Questo OP era già registrato.', true);
-      return;
-    }
     if (!r.ok) {
       const idx = state.bollettini.indexOf(bollettinoLocale);
       if (idx >= 0) state.bollettini.splice(idx, 1);
