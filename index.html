@@ -1601,13 +1601,16 @@ let codeReader = null;
 let charts = { operatori: null, fasi: null, trend: null };
 
 // Lookup TC dato un bollettino (op_barcode = codice componente)
+// IMPORTANTE: ogni scansione "chiude" un OP che corrisponde mediamente a PEZZI_PER_OP pezzi.
+// Il TC nel Tempi_Standard è per SINGOLO pezzo, quindi va moltiplicato per la quantità tipica del lotto.
+const PEZZI_PER_OP = 24;
 function getTCBollettino(b) {
   if (!b || !state.tempi || state.tempi.length === 0) return null;
   const t = state.tempi.find(x =>
     x.codice === String(b.op_barcode).trim() &&
     x.fase_id === String(b.fase_id).trim()
   );
-  return t ? t.tc : null;
+  return t ? t.tc * PEZZI_PER_OP : null;
 }
 
 // Tempo turno effettivo (08:00-17:00 - 1h pausa = 8h = 28800s)
