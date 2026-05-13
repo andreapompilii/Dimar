@@ -1865,15 +1865,16 @@ body { padding-bottom: 38px; }
 // ═══════════════════════════════════════════════════════════════════════════
 // CONFIGURAZIONE & STATO
 // ═══════════════════════════════════════════════════════════════════════════
-const APP_VERSION = '3.1.3';   // versione frontend — incremento ad ogni release per debug
+const APP_VERSION = '3.1.4';   // versione frontend — incremento ad ogni release per debug
 const APP_BUILD = '2026-05-13'; // data build per identificare la versione caricata
 
-const DEFAULT_BACKEND_URL = 'https://script.google.com/macros/s/AKfycbyS-OLPLKVhVBanu7M-Jc9BOGH44SHLy_qaPln-Xao7xiOINnycnyKHymueuEeACyd6Cg/exec';
+const DEFAULT_BACKEND_URL = 'https://script.google.com/macros/s/AKfycbwftomvs8gY5EmwTnYsq3vfxzwFGwX90g9Dbj0EOU9D_AxKkQV7nrtGmONKTMnJrm4HAA/exec';
 
 // URL backend deprecati: se trovo uno di questi nel localStorage del dispositivo,
 // lo aggiorno automaticamente con il default attuale (no intervento utente)
 const DEPRECATED_BACKEND_URLS = [
-  'https://script.google.com/macros/s/AKfycbwSSX040CfKQtvwXhJ6M-UQ9uXCKO2wB_X1F7iM0YdZNham5Wqsu0ryROiIuPLn1TVjvA/exec'
+  'https://script.google.com/macros/s/AKfycbwSSX040CfKQtvwXhJ6M-UQ9uXCKO2wB_X1F7iM0YdZNham5Wqsu0ryROiIuPLn1TVjvA/exec',
+  'https://script.google.com/macros/s/AKfycbyS-OLPLKVhVBanu7M-Jc9BOGH44SHLy_qaPln-Xao7xiOINnycnyKHymueuEeACyd6Cg/exec'
 ];
 
 // Hash SHA-256 delle password — modifica questi se vuoi cambiare le password
