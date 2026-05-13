@@ -359,6 +359,40 @@ input, select { font-family: inherit; font-size: inherit; color: inherit; }
 .timbri-chip strong { font-family: 'Outfit', sans-serif; margin-right: 4px; }
 .timbri-data { color: var(--ink-soft); opacity: .8; margin-left: 4px; font-size: 10px; }
 .timbri-empty { font-size: 12px; color: var(--ink-soft); margin-bottom: 6px; }
+.timbri-error {
+  font-size: 13px;
+  color: var(--warn);
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+.timbri-error-detail {
+  font-size: 11px;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--warn);
+  background: rgba(213,47,47,.08);
+  padding: 6px 10px;
+  border-radius: 4px;
+  margin-bottom: 6px;
+  word-break: break-word;
+}
+.timbri-error-help {
+  font-size: 11px;
+  color: var(--ink-soft);
+  font-style: italic;
+}
+.timbri-error-help code {
+  font-family: 'JetBrains Mono', monospace;
+  background: var(--line-soft);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+.timbri-status.has-error { background: rgba(213,47,47,.06); border: 1px solid rgba(213,47,47,.2); }
+
+/* Contatori status bar */
+.sb-counters { white-space: nowrap; }
+.sb-cnt strong { font-weight: 700; }
+.sb-cnt.ok strong  { color: #2e7d32; }
+.sb-cnt.err strong { color: var(--warn); }
 
 .section-divider {
   display: flex;
@@ -1706,6 +1740,8 @@ body { padding-bottom: 38px; }
   <span class="sb-divider"></span>
   <span class="sb-item"><span class="sb-label">Backend</span> <span class="sb-value" id="sbBackend">…</span></span>
   <span class="sb-divider"></span>
+  <span class="sb-item" title="Operatori · Bollettini · Tempi · Presenze caricati"><span class="sb-label">Dati</span> <span class="sb-value sb-counters" id="sbCounters">—</span></span>
+  <span class="sb-divider"></span>
   <span class="sb-item"><span class="sb-label">Ultima sync</span> <span class="sb-value" id="sbSync">mai</span></span>
   <span class="sb-flex"></span>
   <button class="sb-refresh" id="sbRefresh" type="button" title="Forza sincronizzazione (svuota la cache e ricarica dal server)">
@@ -1829,7 +1865,7 @@ body { padding-bottom: 38px; }
 // ═══════════════════════════════════════════════════════════════════════════
 // CONFIGURAZIONE & STATO
 // ═══════════════════════════════════════════════════════════════════════════
-const APP_VERSION = '3.1.2';   // versione frontend — incremento ad ogni release per debug
+const APP_VERSION = '3.1.3';   // versione frontend — incremento ad ogni release per debug
 const APP_BUILD = '2026-05-13'; // data build per identificare la versione caricata
 
 const DEFAULT_BACKEND_URL = 'https://script.google.com/macros/s/AKfycbyS-OLPLKVhVBanu7M-Jc9BOGH44SHLy_qaPln-Xao7xiOINnycnyKHymueuEeACyd6Cg/exec';
@@ -2305,6 +2341,9 @@ function salvaCacheTempi() {
   } catch (e) {}
 }
 
+// Errori dell'ultima sync per ogni endpoint (visualizzati in UI per diagnostica)
+const lastErrors = { anagrafica: null, bollettini: null, tempi: null, presenze: null };
+
 async function caricaAnagrafica() {
   try {
     const r = await apiGet('anagrafica');
@@ -2313,9 +2352,11 @@ async function caricaAnagrafica() {
     state.anagrafica.fasi = r.fasi || [];
     salvaCacheAnagrafica();
     setStatusDot('ok');
+    lastErrors.anagrafica = null;
     return true;
   } catch (e) {
     setStatusDot('err');
+    lastErrors.anagrafica = String(e.message || e);
     console.error('Anagrafica:', e);
     return false;
   }
@@ -2331,9 +2372,11 @@ async function caricaBollettini() {
     state.bollettini = r.bollettini || [];
     salvaCacheBollettini();
     setStatusDot('ok');
+    lastErrors.bollettini = null;
     return true;
   } catch (e) {
     setStatusDot('err');
+    lastErrors.bollettini = String(e.message || e);
     console.error('Bollettini:', e);
     return false;
   }
@@ -2345,9 +2388,11 @@ async function caricaTempi() {
     if (!r.ok) throw new Error(r.error || 'Errore caricamento tempi');
     state.tempi = r.tempi || [];
     salvaCacheTempi();
+    lastErrors.tempi = null;
     return true;
   } catch (e) {
-    console.warn('Tempi:', e);
+    lastErrors.tempi = String(e.message || e);
+    console.error('Tempi:', e);
     return false;
   }
 }
@@ -2368,9 +2413,12 @@ async function caricaPresenze() {
     state.presenze = r.presenze || [];
     salvaCachePresenze();
     aggiornaStatoTimbri();
+    lastErrors.presenze = null;
     return true;
   } catch (e) {
-    console.warn('Presenze:', e);
+    lastErrors.presenze = String(e.message || e);
+    console.error('Presenze:', e);
+    aggiornaStatoTimbri();  // per mostrare il banner errore
     return false;
   }
 }
@@ -2540,6 +2588,16 @@ function normalizzaData(v) {
 function aggiornaStatoTimbri() {
   const el = $('#timbriStatus');
   if (!el) return;
+
+  // Se c'è stato un errore di caricamento, mostralo in modo evidente
+  if (lastErrors.presenze) {
+    el.innerHTML = '<div class="timbri-error">❌ Errore caricamento presenze dal server</div>'
+      + '<div class="timbri-error-detail">' + lastErrors.presenze + '</div>'
+      + '<div class="timbri-error-help">Causa probabile: il backend Apps Script non è stato distribuito con la nuova versione, oppure l\'endpoint <code>?action=presenze</code> non risponde.</div>';
+    el.className = 'timbri-status has-error';
+    return;
+  }
+
   const oggi = fmtDate(new Date());
 
   // Filtro robusto: normalizzo le date prima di confrontare
@@ -2551,7 +2609,7 @@ function aggiornaStatoTimbri() {
       (b.timestamp || '').localeCompare(a.timestamp || '')
     ).slice(0, 5);
     if (ultimi.length === 0) {
-      el.innerHTML = '<div class="timbri-empty">Nessun timbro registrato</div>';
+      el.innerHTML = '<div class="timbri-empty">Nessun timbro registrato (' + state.presenze.length + ' in totale nello state)</div>';
       el.className = 'timbri-status';
     } else {
       el.innerHTML = '<div class="timbri-empty">Nessun timbro oggi (' + oggi + ') · Ultimi ' + ultimi.length + ' timbri registrati:</div>'
@@ -3796,9 +3854,9 @@ function aggiornaStatusBar(stato) {
   const sbV = $('#sbVersion');
   const sbB = $('#sbBackend');
   const sbS = $('#sbSync');
+  const sbC = $('#sbCounters');
   if (sbV) sbV.textContent = 'v' + APP_VERSION;
   if (stato !== undefined) {
-    // Aggiorno timestamp ultima sync solo se è stato passato esplicitamente uno stato
     if (sbS) sbS.textContent = new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   }
   if (sbB) {
@@ -3806,6 +3864,18 @@ function aggiornaStatusBar(stato) {
     else if (stato === 'err') { sbB.textContent = 'offline'; sbB.className = 'sb-value err'; }
     else if (stato === undefined) { /* lascia stato precedente */ }
     else                       { sbB.textContent = '…';      sbB.className = 'sb-value'; }
+  }
+  // Contatori: Op N · Bol N · TC N · Pres N
+  if (sbC) {
+    const nOp  = state.anagrafica.operatori.length;
+    const nBol = state.bollettini.length;
+    const nTc  = state.tempi.length;
+    const nPr  = state.presenze.length;
+    const presCls = (nPr === 0 && lastErrors.presenze) ? 'sb-cnt err' : (nPr > 0 ? 'sb-cnt ok' : 'sb-cnt');
+    sbC.innerHTML = 'Op <strong>' + nOp + '</strong>'
+      + ' · Bol <strong>' + nBol + '</strong>'
+      + ' · TC <strong>' + nTc + '</strong>'
+      + ' · <span class="' + presCls + '">Pres <strong>' + nPr + '</strong></span>';
   }
 }
 
