@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>Monitor Efficienza Operatori</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -242,6 +245,16 @@ input, select { font-family: inherit; font-size: inherit; color: inherit; }
 }
 .scan-btn.primary .scan-icon { background: rgba(255,255,255,.15); color: #fff; }
 .scan-btn.primary .scan-label { color: rgba(255,255,255,.85); }
+
+/* Flash animation quando un bottone viene "compilato" dalla smart-detection */
+.scan-btn.flash-success {
+  animation: flash-success-anim .4s ease-out;
+}
+@keyframes flash-success-anim {
+  0%   { background-color: rgba(46,125,50,.25); transform: scale(1); }
+  50%  { background-color: rgba(46,125,50,.45); transform: scale(1.02); }
+  100% { background-color: transparent; transform: scale(1); }
+}
 
 /* ═══════════════════════════════════════════════════════════════════
    TIMBRI PRESENZA — bottoni Ingresso / Uscita
@@ -753,6 +766,72 @@ input, select { font-family: inherit; font-size: inherit; color: inherit; }
   background: var(--line-soft);
 }
 .eff-row-escluso:hover { background: var(--line-soft); }
+
+/* ═══════════════════════════════════════════════════════════════════
+   STATUS BAR — sempre visibile in basso
+   ═══════════════════════════════════════════════════════════════════ */
+.app-statusbar {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 6px 14px;
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+  font-size: 11px;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--ink-soft);
+  z-index: 50;
+  box-shadow: 0 -2px 6px rgba(0,0,0,.04);
+}
+.sb-item { display: inline-flex; align-items: center; gap: 6px; }
+.sb-label {
+  text-transform: uppercase;
+  font-size: 9px;
+  letter-spacing: 1px;
+  font-family: 'Outfit', sans-serif;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+.sb-value { color: var(--ink); font-weight: 600; }
+.sb-value.ok    { color: #2e7d32; }
+.sb-value.err   { color: var(--warn); }
+.sb-divider {
+  width: 1px;
+  height: 14px;
+  background: var(--line);
+}
+.sb-flex { flex: 1; }
+.sb-refresh {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: inherit;
+  letter-spacing: .3px;
+  cursor: pointer;
+  transition: opacity .15s;
+}
+.sb-refresh:hover  { opacity: .9; }
+.sb-refresh:active { transform: scale(.97); }
+.sb-refresh.spinning svg { animation: sb-spin 1s linear infinite; }
+.sb-refresh svg { width: 13px; height: 13px; }
+@keyframes sb-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+/* margine sotto al body per non coprire contenuto con la status bar */
+body { padding-bottom: 38px; }
+
+@media (max-width: 600px) {
+  .app-statusbar { gap: 8px; padding: 5px 8px; font-size: 10px; flex-wrap: wrap; }
+  .sb-label { font-size: 8px; }
+}
 
 .eff-bar-cell {
   width: 35%;
@@ -1353,7 +1432,7 @@ input, select { font-family: inherit; font-size: inherit; color: inherit; }
 <!-- ═══════════════════════ PAGINA: INSERIMENTO ═══════════════════════ -->
 <section class="page active" id="page-inserimento">
   <h1 class="page-title">Inserimento Bollettini</h1>
-  <p class="page-sub">Scansiona in ordine: ① Operatore → ② Fase → ③ Codice Componente</p>
+  <p class="page-sub">Apri lo scanner e spara in sequenza: operatore → fase → codice. L'app avanza da sola tra gli step.</p>
 
   <!-- Timbri presenza -->
   <div class="timbri-row">
@@ -1405,13 +1484,13 @@ input, select { font-family: inherit; font-size: inherit; color: inherit; }
       <div class="scan-status" id="status-fase"></div>
     </button>
 
-    <button class="scan-btn primary" id="btn-op" data-step="op" disabled>
+    <button class="scan-btn primary" id="btn-op" data-step="op">
       <div class="scan-icon">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><line x1="7" y1="9" x2="7" y2="15"/><line x1="11" y1="9" x2="11" y2="15"/><line x1="15" y1="9" x2="15" y2="15"/><line x1="17" y1="9" x2="17" y2="15"/></svg>
       </div>
       <div class="scan-info">
         <div class="scan-label">③ Codice Componente</div>
-        <div class="scan-value placeholder" id="val-op">Compila prima i campi sopra</div>
+        <div class="scan-value placeholder" id="val-op">Tocca un bottone qualsiasi per iniziare</div>
       </div>
       <div class="scan-status" id="status-op"></div>
     </button>
@@ -1595,6 +1674,20 @@ input, select { font-family: inherit; font-size: inherit; color: inherit; }
   </div>
 </section>
 
+<!-- ═══════════════════════ STATUS BAR — sempre visibile in basso ═══════ -->
+<div class="app-statusbar">
+  <span class="sb-item"><span class="sb-label">App</span> <span class="sb-value" id="sbVersion">—</span></span>
+  <span class="sb-divider"></span>
+  <span class="sb-item"><span class="sb-label">Backend</span> <span class="sb-value" id="sbBackend">…</span></span>
+  <span class="sb-divider"></span>
+  <span class="sb-item"><span class="sb-label">Ultima sync</span> <span class="sb-value" id="sbSync">mai</span></span>
+  <span class="sb-flex"></span>
+  <button class="sb-refresh" id="sbRefresh" type="button" title="Forza sincronizzazione (svuota la cache e ricarica dal server)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+    Sincronizza
+  </button>
+</div>
+
 <!-- ═══════════════════════ MODAL: SCANNER ═══════════════════════ -->
 <div class="modal-backdrop" id="modalScanner">
   <div class="modal">
@@ -1710,6 +1803,9 @@ input, select { font-family: inherit; font-size: inherit; color: inherit; }
 // ═══════════════════════════════════════════════════════════════════════════
 // CONFIGURAZIONE & STATO
 // ═══════════════════════════════════════════════════════════════════════════
+const APP_VERSION = '3.1.0';   // versione frontend — incremento ad ogni release per debug
+const APP_BUILD = '2026-05-13'; // data build per identificare la versione caricata
+
 const DEFAULT_BACKEND_URL = 'https://script.google.com/macros/s/AKfycbyS-OLPLKVhVBanu7M-Jc9BOGH44SHLy_qaPln-Xao7xiOINnycnyKHymueuEeACyd6Cg/exec';
 
 // URL backend deprecati: se trovo uno di questi nel localStorage del dispositivo,
@@ -1950,6 +2046,8 @@ function avviaPolling() {
       }
       // Aggiorna UI
       aggiornaContatoreOggi();
+      aggiornaStatoTimbri();
+      aggiornaStatusBar('ok');
       const activeTab = document.querySelector('.tab-btn.active');
       const t = activeTab ? activeTab.dataset.tab : null;
       if (t === 'riepilogo') refreshRiepilogo();
@@ -2097,7 +2195,13 @@ async function apiGet(action, params) {
   const url = new URL(backendUrl);
   url.searchParams.set('action', action);
   if (params) for (const k in params) url.searchParams.set(k, params[k]);
-  const res = await fetch(url.toString(), { method: 'GET' });
+  // Cache-busting: timestamp diverso ogni chiamata → il browser non riusa risposte cacheate
+  url.searchParams.set('_t', String(Date.now()));
+  const res = await fetch(url.toString(), {
+    method: 'GET',
+    cache: 'no-store',
+    headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate' }
+  });
   if (!res.ok) throw new Error('HTTP ' + res.status);
   return await res.json();
 }
@@ -2107,7 +2211,8 @@ async function apiPost(payload) {
   const res = await fetch(backendUrl, {
     method: 'POST',
     body: JSON.stringify(payload),
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' }
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    cache: 'no-store'
   });
   if (!res.ok) throw new Error('HTTP ' + res.status);
   return await res.json();
@@ -2277,19 +2382,18 @@ $('#btn-fase').addEventListener('click', () => {
   apriScanner('fase');
 });
 $('#btn-op').addEventListener('click', () => {
-  if ($('#btn-op').disabled) return;
   apriScanner('op');
 });
 
 async function apriScanner(step) {
-  state.currentScanStep = step;
   state.timbraMode = null; // reset modalità timbra se attiva
-  const titles = {
-    operatore: 'Scansiona Barcode Operatore',
-    fase:      'Scansiona Barcode Fase',
-    op:        'Scansiona Barcode Codice Componente'
-  };
-  $('#scannerTitle').textContent = titles[step];
+  // Auto-resolve dello step: parto sempre da quello che manca per primo
+  // (l'utente può cliccare qualsiasi bottone — l'app capisce da dove serve partire)
+  if (!state.scan.operatore)       state.currentScanStep = 'operatore';
+  else if (!state.scan.fase)       state.currentScanStep = 'fase';
+  else                              state.currentScanStep = 'op';
+
+  aggiornaTitoloScanner();
   $('#scannerError').classList.remove('show');
   $('#usbInput').value = '';
   $('#modalScanner').classList.add('active');
@@ -2421,6 +2525,8 @@ $('#btnTimbraOut').addEventListener('click', () => apriScannerTimbra('OUT'));
 const CAMERA_KEY = 'efficienza_camera_facing';
 let cameraFacing = localStorage.getItem(CAMERA_KEY) || 'environment';
 let scannerActive = false;  // flag per ignorare callback ZXing residui
+let lastScanText = '';      // ultimo barcode letto (per debounce)
+let lastScanTime = 0;       // timestamp ultima lettura (per debounce)
 
 async function avviaWebcam() {
   try {
@@ -2443,10 +2549,24 @@ async function avviaWebcam() {
       // CRITICO: ignora callback "in volo" arrivati dopo la chiusura
       if (!scannerActive) return;
       if (result) {
-        scannerActive = false;  // blocca subito eventuali callback successivi
         const code = result.getText();
-        chiudiScanner();
-        gestisciScansione(code);
+        // DEBOUNCE: ignora stesso barcode entro 2 secondi (evita doppie letture della stessa pistola)
+        const now = Date.now();
+        if (code === lastScanText && (now - lastScanTime) < 2000) {
+          return;
+        }
+        lastScanText = code;
+        lastScanTime = now;
+
+        // MODALITÀ TIMBRA: leggo e chiudo subito (è un'operazione singola)
+        if (state.timbraMode) {
+          scannerActive = false;
+          chiudiScanner();
+          gestisciScansione(code);
+        } else {
+          // MODALITÀ AUTO BOLLETTINI: leggo e continuo (scanner resta aperto)
+          gestisciScansione(code);
+        }
       }
     });
 
@@ -2494,9 +2614,24 @@ $('#usbInput').addEventListener('keydown', (e) => {
     if (!scannerActive) return;  // protezione: ignora se scanner non attivo
     const code = $('#usbInput').value.trim();
     if (!code) return;
-    scannerActive = false;
-    chiudiScanner();
-    gestisciScansione(code);
+    $('#usbInput').value = '';  // pulisco subito per la prossima scansione
+
+    // Debounce
+    const now = Date.now();
+    if (code === lastScanText && (now - lastScanTime) < 2000) return;
+    lastScanText = code;
+    lastScanTime = now;
+
+    if (state.timbraMode) {
+      scannerActive = false;
+      chiudiScanner();
+      gestisciScansione(code);
+    } else {
+      // Modalità auto: leggo e resto aperto
+      gestisciScansione(code);
+      // Re-focus per la prossima scansione USB
+      setTimeout(() => $('#usbInput').focus(), 50);
+    }
   }
 });
 
@@ -2510,10 +2645,10 @@ function trovaInAnagrafica(barcode, lista) {
 }
 
 async function gestisciScansione(barcode) {
-  // MODALITÀ TIMBRA: se siamo in modalità timbra, il barcode è un operatore
+  // MODALITÀ TIMBRA: il barcode è SEMPRE un operatore (chiude lo scanner)
   if (state.timbraMode) {
     const tipo = state.timbraMode;
-    state.timbraMode = null; // reset subito
+    state.timbraMode = null;
     await processaTimbro(barcode, tipo);
     return;
   }
@@ -2527,10 +2662,11 @@ async function gestisciScansione(barcode) {
     return;
   }
 
+  // ═══════════════ STEP OPERATORE ═══════════════
   if (step === 'operatore') {
     let trovato = trovaInAnagrafica(barcode, state.anagrafica.operatori);
-    // Smart retry: se non trovato, forse l'anagrafica è stata aggiornata di recente
     if (!trovato) {
+      // Smart retry: ricarica anagrafica e riprova
       showLoading('Aggiorno anagrafica...');
       await caricaAnagrafica();
       hideLoading();
@@ -2543,11 +2679,16 @@ async function gestisciScansione(barcode) {
     state.scan.operatore = trovato;
     aggiornaUI('operatore');
     bloccaBottone('operatore');
-    abilitaOPSeProto();
+    flashScanBtn('operatore');
+    toast('👤 ' + trovato.descrizione, 'info', { duration: 1200 });
+    // AUTO-ADVANCE allo step successivo
+    avanzaStep();
+    return;
   }
-  else if (step === 'fase') {
+
+  // ═══════════════ STEP FASE ═══════════════
+  if (step === 'fase') {
     let trovato = trovaInAnagrafica(barcode, state.anagrafica.fasi);
-    // Smart retry: se non trovato, forse l'anagrafica è stata aggiornata di recente
     if (!trovato) {
       showLoading('Aggiorno anagrafica...');
       await caricaAnagrafica();
@@ -2561,31 +2702,68 @@ async function gestisciScansione(barcode) {
     state.scan.fase = trovato;
     aggiornaUI('fase');
     bloccaBottone('fase');
-    abilitaOPSeProto();
+    flashScanBtn('fase');
+    toast('🔧 ' + trovato.descrizione, 'info', { duration: 1200 });
+    avanzaStep();
+    return;
   }
-  else if (step === 'op') {
+
+  // ═══════════════ STEP CODICE ═══════════════
+  if (step === 'op') {
     if (!state.scan.operatore || !state.scan.fase) {
-      toast('Compila prima Operatore e Fase', 'error');
+      toast('Mancano operatore o fase', 'error');
       return;
     }
     const codeOP = String(barcode).trim();
     if (codeOP.length === 0) {
-      toast('Barcode OP vuoto', 'error');
+      toast('Barcode codice vuoto', 'error');
       return;
     }
-    // Blacklist: l'OP non deve corrispondere al barcode di un operatore o di una fase
+    // Blacklist: il codice non deve corrispondere a un operatore o a una fase
     const matchOp = trovaInAnagrafica(codeOP, state.anagrafica.operatori);
     if (matchOp) {
-      toast('Hai scansionato il barcode di un operatore (' + matchOp.descrizione + '), non un OP', 'error');
+      toast('Hai scansionato un barcode operatore (' + matchOp.descrizione + '), non un codice', 'error');
       return;
     }
     const matchFase = trovaInAnagrafica(codeOP, state.anagrafica.fasi);
     if (matchFase) {
-      toast('Hai scansionato il barcode di una fase (' + matchFase.descrizione + '), non un OP', 'error');
+      toast('Hai scansionato un barcode fase (' + matchFase.descrizione + '), non un codice', 'error');
       return;
     }
-    salvaBollettino(codeOP);
+    // Salva (mantenendo operatore e fase per la prossima sparata)
+    salvaBollettino(codeOP, { mantieniOpFase: true });
+    flashScanBtn('op');
+    // Lo step resta 'op': pronto per il prossimo codice
+    aggiornaTitoloScanner();
   }
+}
+
+// Avanza allo step successivo in base a cosa è già stato compilato
+function avanzaStep() {
+  if (!state.scan.operatore)       state.currentScanStep = 'operatore';
+  else if (!state.scan.fase)       state.currentScanStep = 'fase';
+  else                              state.currentScanStep = 'op';
+  aggiornaTitoloScanner();
+}
+
+// Aggiorna il titolo della modale scanner in base allo step corrente
+function aggiornaTitoloScanner() {
+  const step = state.currentScanStep;
+  let title;
+  if (step === 'operatore')  title = '① Scansiona barcode OPERATORE';
+  else if (step === 'fase')  title = '② Scansiona barcode FASE  ·  ' + (state.scan.operatore ? state.scan.operatore.descrizione : '');
+  else if (step === 'op')    title = '③ Scansiona CODICE COMPONENTE  ·  ' + (state.scan.fase ? state.scan.fase.descrizione : '');
+  else                        title = 'Scanner';
+  const el = $('#scannerTitle');
+  if (el) el.textContent = title;
+}
+
+// Piccolo flash visivo sul bottone quando viene compilato
+function flashScanBtn(step) {
+  const btn = $('#btn-' + step);
+  if (!btn) return;
+  btn.classList.add('flash-success');
+  setTimeout(() => btn.classList.remove('flash-success'), 400);
 }
 
 function aggiornaUI(step) {
@@ -2623,9 +2801,10 @@ function pulisciStep(step) {
   $('#val-' + step).textContent = 'Tocca per scansionare';
   $('#val-' + step).classList.add('placeholder');
   $('#code-' + step).textContent = '';
-  // Disabilita il bottone OP perché manca uno step
-  $('#btn-op').disabled = true;
-  $('#val-op').textContent = 'Compila prima i campi sopra';
+  // Aggiorno il testo OP in base allo stato corrente
+  if (!state.scan.operatore || !state.scan.fase) {
+    $('#val-op').textContent = 'Tocca un bottone qualsiasi per iniziare';
+  }
 }
 
 // Listener globale per i pulsanti ✕ (delegation perché vengono creati dinamicamente)
@@ -2639,13 +2818,16 @@ document.addEventListener('click', (e) => {
 });
 
 function abilitaOPSeProto() {
+  // Il bottone OP è sempre cliccabile (smart detection apre lo scanner).
+  // Aggiorno solo il testo del placeholder in base allo stato.
   if (state.scan.operatore && state.scan.fase) {
-    $('#btn-op').disabled = false;
-    $('#val-op').textContent = 'Tocca per scansionare il componente';
+    $('#val-op').textContent = 'Spara codici componenti — operatore e fase pronti';
+    $('#val-op').classList.remove('placeholder');
   }
 }
 
-async function salvaBollettino(opBarcode) {
+async function salvaBollettino(opBarcode, opts) {
+  opts = opts || {};
   const payload = {
     operatore_id:      state.scan.operatore.id,
     operatore_nome:    state.scan.operatore.descrizione,
@@ -2656,7 +2838,7 @@ async function salvaBollettino(opBarcode) {
 
   // Check duplicato RIMOSSO: i codici possono ripetersi nello stesso giorno
 
-  // OPTIMISTIC UI: aggiungo subito allo state e resetto il form
+  // OPTIMISTIC UI: aggiungo subito allo state
   const ora = new Date();
   const bollettinoLocale = {
     timestamp:        ora.toISOString(),
@@ -2671,7 +2853,11 @@ async function salvaBollettino(opBarcode) {
   };
   state.bollettini.unshift(bollettinoLocale);
   aggiornaContatoreOggi();
-  resetForm();
+
+  // Modalità AUTO: mantengo operatore e fase, non resetto il form intero
+  if (!opts.mantieniOpFase) {
+    resetForm();
+  }
 
   // SALVATAGGIO IN BACKGROUND
   apiPost(payload).then(r => {
@@ -2811,8 +2997,8 @@ function resetForm() {
     $('#code-' + step).textContent = '';
   });
 
-  $('#btn-op').disabled = true;
-  $('#val-op').textContent = 'Compila prima i campi sopra';
+  $('#val-op').textContent = 'Tocca un bottone qualsiasi per iniziare';
+  $('#val-op').classList.add('placeholder');
 }
 
 $('#btnReset').addEventListener('click', resetForm);
@@ -3501,7 +3687,9 @@ async function caricaDatiIniziali(silenzioso) {
     populateFilters();
     aggiornaContatoreOggi();
     aggiornaStatoTimbri();
+    aggiornaStatusBar('ok');
   } else if (!silenzioso) {
+    aggiornaStatusBar('err');
     showAlert('Connessione lenta', 'Sto usando i dati salvati nel dispositivo. Tira giù per aggiornare quando la connessione torna.', true);
   }
 
@@ -3511,6 +3699,49 @@ async function caricaDatiIniziali(silenzioso) {
   if (t === 'riepilogo') refreshRiepilogo();
   if (t === 'dashboard') refreshDashboard();
 }
+
+// ─── STATUS BAR ───────────────────────────────────────────────────────────
+function aggiornaStatusBar(stato) {
+  const sbV = $('#sbVersion');
+  const sbB = $('#sbBackend');
+  const sbS = $('#sbSync');
+  if (sbV) sbV.textContent = 'v' + APP_VERSION;
+  if (sbS) sbS.textContent = new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  if (sbB) {
+    if (stato === 'ok')  { sbB.textContent = 'online'; sbB.className = 'sb-value ok'; }
+    else if (stato === 'err') { sbB.textContent = 'offline'; sbB.className = 'sb-value err'; }
+    else                  { sbB.textContent = '…'; sbB.className = 'sb-value'; }
+  }
+}
+
+// Bottone "Sincronizza": svuota cache locale e ricarica TUTTO dal server
+async function forzaSincronizzazione() {
+  const btn = $('#sbRefresh');
+  if (btn) btn.classList.add('spinning');
+  try {
+    // Svuoto le cache di dati (non le sessioni utente)
+    localStorage.removeItem(CACHE_BOLLETTINI_KEY);
+    localStorage.removeItem(CACHE_PRESENZE_KEY);
+    localStorage.removeItem(CACHE_TS_KEY);
+    // Reset state in memoria (non l'anagrafica però per evitare flash)
+    state.bollettini = [];
+    state.presenze = [];
+
+    await caricaDatiIniziali(true);
+    aggiornaStatusBar('ok');
+    toast('Sincronizzazione completata · ' + state.bollettini.length + ' bollettini, ' + state.presenze.length + ' timbri caricati', 'success', { duration: 4000 });
+  } catch (e) {
+    aggiornaStatusBar('err');
+    toast('Errore di sincronizzazione', 'error');
+  } finally {
+    if (btn) btn.classList.remove('spinning');
+  }
+}
+
+// Inizializzo status bar al caricamento
+aggiornaStatusBar('');
+const _sbRefreshBtn = $('#sbRefresh');
+if (_sbRefreshBtn) _sbRefreshBtn.addEventListener('click', forzaSincronizzazione);
 
 async function init() {
   // Default filtri data
