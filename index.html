@@ -327,12 +327,38 @@ input, select { font-family: inherit; font-size: inherit; color: inherit; }
   color: var(--ink-soft);
   text-align: center;
   margin-bottom: 18px;
-  padding: 6px;
+  padding: 10px;
   background: var(--line-soft);
-  border-radius: 4px;
+  border-radius: 6px;
 }
-.timbri-status.has-in { color: #2e7d32; font-weight: 600; }
-.timbri-status.has-out { color: var(--ink); font-weight: 600; }
+.timbri-status.has-data { background: rgba(46,125,50,.06); }
+.timbri-counters {
+  font-size: 13px;
+  color: var(--ink);
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+.timbri-counters strong { color: #2e7d32; font-weight: 700; }
+.timbri-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+}
+.timbri-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 14px;
+  font-size: 11px;
+  font-family: 'JetBrains Mono', monospace;
+  border: 1px solid;
+}
+.timbri-chip.in   { border-color: #2e7d32; color: #2e7d32; background: rgba(46,125,50,.06); }
+.timbri-chip.out  { border-color: var(--ink-soft); color: var(--ink); background: var(--line-soft); }
+.timbri-chip strong { font-family: 'Outfit', sans-serif; margin-right: 4px; }
+.timbri-data { color: var(--ink-soft); opacity: .8; margin-left: 4px; font-size: 10px; }
+.timbri-empty { font-size: 12px; color: var(--ink-soft); margin-bottom: 6px; }
 
 .section-divider {
   display: flex;
@@ -1803,7 +1829,7 @@ body { padding-bottom: 38px; }
 // ═══════════════════════════════════════════════════════════════════════════
 // CONFIGURAZIONE & STATO
 // ═══════════════════════════════════════════════════════════════════════════
-const APP_VERSION = '3.1.1';   // versione frontend — incremento ad ogni release per debug
+const APP_VERSION = '3.1.2';   // versione frontend — incremento ad ogni release per debug
 const APP_BUILD = '2026-05-13'; // data build per identificare la versione caricata
 
 const DEFAULT_BACKEND_URL = 'https://script.google.com/macros/s/AKfycbyS-OLPLKVhVBanu7M-Jc9BOGH44SHLy_qaPln-Xao7xiOINnycnyKHymueuEeACyd6Cg/exec';
@@ -2489,16 +2515,62 @@ async function processaTimbro(barcode, tipo) {
   }
 }
 
+// Normalizza una data al formato YYYY-MM-DD (robusto a vari input)
+function normalizzaData(v) {
+  if (!v) return '';
+  const s = String(v).trim();
+  // Già in formato YYYY-MM-DD?
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  // ISO completo? "2026-05-13T..."
+  const isoMatch = s.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (isoMatch) return isoMatch[1];
+  // DD/MM/YYYY o DD-MM-YYYY?
+  const itMatch = s.match(/^(\d{2})[\/\-](\d{2})[\/\-](\d{4})/);
+  if (itMatch) return itMatch[3] + '-' + itMatch[2] + '-' + itMatch[1];
+  // Fallback: prova new Date
+  const d = new Date(s);
+  if (!isNaN(d.getTime())) {
+    return d.getFullYear() + '-' +
+           String(d.getMonth() + 1).padStart(2, '0') + '-' +
+           String(d.getDate()).padStart(2, '0');
+  }
+  return s;
+}
+
 function aggiornaStatoTimbri() {
   const el = $('#timbriStatus');
   if (!el) return;
   const oggi = fmtDate(new Date());
-  const timbriOggi = state.presenze.filter(p => p.data === oggi);
+
+  // Filtro robusto: normalizzo le date prima di confrontare
+  const timbriOggi = state.presenze.filter(p => normalizzaData(p.data) === oggi);
+
   if (timbriOggi.length === 0) {
-    el.textContent = 'Nessun timbro oggi';
-    el.className = 'timbri-status';
+    // Fallback: se non c'è niente di "oggi", mostro comunque gli ultimi 5 timbri
+    const ultimi = state.presenze.slice().sort((a,b) =>
+      (b.timestamp || '').localeCompare(a.timestamp || '')
+    ).slice(0, 5);
+    if (ultimi.length === 0) {
+      el.innerHTML = '<div class="timbri-empty">Nessun timbro registrato</div>';
+      el.className = 'timbri-status';
+    } else {
+      el.innerHTML = '<div class="timbri-empty">Nessun timbro oggi (' + oggi + ') · Ultimi ' + ultimi.length + ' timbri registrati:</div>'
+        + '<div class="timbri-list">'
+        + ultimi.map(p => {
+            const tipoCls = p.tipo === 'IN' ? 'in' : 'out';
+            return '<span class="timbri-chip ' + tipoCls + '">'
+              + '<strong>' + p.operatore_nome + '</strong> · '
+              + p.tipo + ' '
+              + (p.ora || '').slice(0,5)
+              + ' <span class="timbri-data">(' + normalizzaData(p.data) + ')</span>'
+              + '</span>';
+          }).join('')
+        + '</div>';
+      el.className = 'timbri-status';
+    }
     return;
   }
+
   // Raggruppo per operatore: chi è ENTRATO, chi è USCITO
   const perOp = {};
   timbriOggi.forEach(p => {
@@ -2512,10 +2584,28 @@ function aggiornaStatoTimbri() {
       perOp[p.operatore_id].out = p.ora;
     }
   });
-  const dentro = Object.values(perOp).filter(o => o.in && !o.out).length;
-  const usciti = Object.values(perOp).filter(o => o.in && o.out).length;
-  el.innerHTML = '<strong>' + dentro + '</strong> al lavoro · <strong>' + usciti + '</strong> usciti';
-  el.className = 'timbri-status has-in';
+  const lista = Object.values(perOp).sort((a,b) => (a.in||'').localeCompare(b.in||''));
+  const dentro = lista.filter(o => o.in && !o.out).length;
+  const usciti = lista.filter(o => o.in && o.out).length;
+
+  el.innerHTML =
+    '<div class="timbri-counters">'
+    + '<strong>' + dentro + '</strong> al lavoro · '
+    + '<strong>' + usciti + '</strong> usciti · '
+    + '<strong>' + lista.length + '</strong> totali'
+    + '</div>'
+    + '<div class="timbri-list">'
+    + lista.map(o => {
+        const inTxt = o.in ? o.in.slice(0,5) : '—';
+        const outTxt = o.out ? o.out.slice(0,5) : '…';
+        const status = o.out ? 'out' : 'in';
+        return '<span class="timbri-chip ' + status + '">'
+          + '<strong>' + o.nome + '</strong> · '
+          + inTxt + ' → ' + outTxt
+          + '</span>';
+      }).join('')
+    + '</div>';
+  el.className = 'timbri-status has-data';
 }
 
 // Handler bottoni timbri
@@ -3707,11 +3797,15 @@ function aggiornaStatusBar(stato) {
   const sbB = $('#sbBackend');
   const sbS = $('#sbSync');
   if (sbV) sbV.textContent = 'v' + APP_VERSION;
-  if (sbS) sbS.textContent = new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  if (stato !== undefined) {
+    // Aggiorno timestamp ultima sync solo se è stato passato esplicitamente uno stato
+    if (sbS) sbS.textContent = new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  }
   if (sbB) {
-    if (stato === 'ok')  { sbB.textContent = 'online'; sbB.className = 'sb-value ok'; }
+    if (stato === 'ok')       { sbB.textContent = 'online';  sbB.className = 'sb-value ok'; }
     else if (stato === 'err') { sbB.textContent = 'offline'; sbB.className = 'sb-value err'; }
-    else                  { sbB.textContent = '…'; sbB.className = 'sb-value'; }
+    else if (stato === undefined) { /* lascia stato precedente */ }
+    else                       { sbB.textContent = '…';      sbB.className = 'sb-value'; }
   }
 }
 
