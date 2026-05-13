@@ -242,6 +242,109 @@ input, select { font-family: inherit; font-size: inherit; color: inherit; }
 }
 .scan-btn.primary .scan-icon { background: rgba(255,255,255,.15); color: #fff; }
 .scan-btn.primary .scan-label { color: rgba(255,255,255,.85); }
+
+/* ═══════════════════════════════════════════════════════════════════
+   TIMBRI PRESENZA — bottoni Ingresso / Uscita
+   ═══════════════════════════════════════════════════════════════════ */
+.timbri-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.timbra-btn {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px;
+  border: 2px solid;
+  border-radius: 10px;
+  background: var(--surface);
+  cursor: pointer;
+  transition: all .15s ease;
+  text-align: left;
+  font-family: inherit;
+}
+.timbra-btn:active { transform: scale(.98); }
+.timbra-btn:hover { box-shadow: var(--shadow-md); }
+
+.timbra-btn.timbra-in {
+  border-color: #2e7d32;
+  color: #2e7d32;
+}
+.timbra-btn.timbra-in:hover {
+  background: rgba(46,125,50,.04);
+}
+.timbra-btn.timbra-out {
+  border-color: #c62828;
+  color: #c62828;
+}
+.timbra-btn.timbra-out:hover {
+  background: rgba(198,40,40,.04);
+}
+
+.timbra-icon {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.timbra-icon svg {
+  width: 28px;
+  height: 28px;
+}
+.timbra-info { flex: 1; min-width: 0; }
+.timbra-label {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -.2px;
+  line-height: 1.1;
+}
+.timbra-sub {
+  font-size: 11px;
+  color: var(--ink-soft);
+  margin-top: 2px;
+  font-weight: 400;
+}
+
+.timbri-status {
+  font-size: 12px;
+  color: var(--ink-soft);
+  text-align: center;
+  margin-bottom: 18px;
+  padding: 6px;
+  background: var(--line-soft);
+  border-radius: 4px;
+}
+.timbri-status.has-in { color: #2e7d32; font-weight: 600; }
+.timbri-status.has-out { color: var(--ink); font-weight: 600; }
+
+.section-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 14px 0 18px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  color: var(--ink-soft);
+}
+.section-divider::before,
+.section-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+
+@media (max-width: 600px) {
+  .timbri-row { grid-template-columns: 1fr; }
+  .timbra-btn { padding: 14px 16px; }
+  .timbra-label { font-size: 14px; }
+}
 .scan-btn.primary .scan-value { color: #fff; }
 .scan-btn.primary:hover:not(:disabled) {
   background: var(--accent-2);
@@ -633,6 +736,23 @@ input, select { font-family: inherit; font-size: inherit; color: inherit; }
   color: var(--ink);
   font-size: 13px;
 }
+.eff-timbri-info {
+  font-size: 11px;
+  color: var(--ink-soft);
+  font-family: 'JetBrains Mono', monospace;
+  margin-top: 3px;
+  margin-left: 18px;
+}
+.eff-timbri-missing {
+  color: var(--warn);
+  font-weight: 600;
+  font-family: inherit;
+}
+.eff-row-escluso {
+  opacity: .65;
+  background: var(--line-soft);
+}
+.eff-row-escluso:hover { background: var(--line-soft); }
 
 .eff-bar-cell {
   width: 35%;
@@ -748,6 +868,26 @@ input, select { font-family: inherit; font-size: inherit; color: inherit; }
   position: sticky;
   top: 0;
   z-index: 2;
+}
+.tc-mancanti-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+.tc-mancanti-header > div:first-child {
+  flex: 1;
+  min-width: 0;
+}
+.btn-sm {
+  padding: 6px 12px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+@media (max-width: 600px) {
+  .tc-mancanti-header { flex-direction: column; align-items: stretch; }
+  .btn-sm { width: 100%; }
 }
 
 /* ───────────── MODAL ───────────── */
@@ -1215,6 +1355,31 @@ input, select { font-family: inherit; font-size: inherit; color: inherit; }
   <h1 class="page-title">Inserimento Bollettini</h1>
   <p class="page-sub">Scansiona in ordine: ① Operatore → ② Fase → ③ Codice Componente</p>
 
+  <!-- Timbri presenza -->
+  <div class="timbri-row">
+    <button class="timbra-btn timbra-in" id="btnTimbraIn" type="button">
+      <div class="timbra-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+      </div>
+      <div class="timbra-info">
+        <div class="timbra-label">Timbra Ingresso</div>
+        <div class="timbra-sub">Sparare il proprio barcode</div>
+      </div>
+    </button>
+    <button class="timbra-btn timbra-out" id="btnTimbraOut" type="button">
+      <div class="timbra-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      </div>
+      <div class="timbra-info">
+        <div class="timbra-label">Timbra Uscita</div>
+        <div class="timbra-sub">Sparare il proprio barcode</div>
+      </div>
+    </button>
+  </div>
+  <div class="timbri-status" id="timbriStatus">Nessun timbro oggi</div>
+
+  <div class="section-divider"><span>Scansione bollettini</span></div>
+
   <div class="scan-stack">
     <button class="scan-btn" id="btn-operatore" data-step="operatore">
       <div class="scan-icon">
@@ -1391,8 +1556,13 @@ input, select { font-family: inherit; font-size: inherit; color: inherit; }
       </table>
     </div>
     <div class="chart-card full">
-      <div class="chart-title">⚠️ TC Mancanti</div>
-      <div class="chart-sub">Codici componenti scansionati senza tempo ciclo nel DB Tempi_Standard — vanno aggiunti per un calcolo efficienza accurato</div>
+      <div class="tc-mancanti-header">
+        <div>
+          <div class="chart-title">⚠️ TC Mancanti</div>
+          <div class="chart-sub">Codici componenti scansionati senza tempo ciclo nel DB Tempi_Standard — vanno aggiunti per un calcolo efficienza accurato</div>
+        </div>
+        <button class="btn btn-success btn-sm" id="btnExportTcMancanti" type="button">📥 Esporta Excel</button>
+      </div>
       <div class="tc-mancanti-wrap">
         <table class="data-table">
           <thead>
@@ -1591,8 +1761,10 @@ const state = {
   anagrafica: { operatori: [], fasi: [] },
   bollettini: [],
   tempi: [],     // [{ codice, fase_id, tc, componente, prodotto }]
+  presenze: [],  // [{ timestamp, data, ora, operatore_id, operatore_nome, tipo (IN|OUT) }]
   scan: { operatore: null, fase: null },
   currentScanStep: null,
+  timbraMode: null,  // null | 'IN' | 'OUT' — quando attivo, lo scanner registra un timbro
   currentPeriod: 'oggi',
   role: getRoleStored()  // 'operatore' | 'direzione' | null - sessione 12h persistente
 };
@@ -1766,10 +1938,13 @@ function avviaPolling() {
     if (!state.role || !backendUrl) return;
     try {
       pollingCounter++;
-      // Bollettini: sempre (ogni 5 min)
-      const ok = await caricaBollettini();
-      if (!ok) return;
-      // Anagrafica + Tempi: ogni 5 min (per essere reattivi a modifiche)
+      // Bollettini e presenze: sempre (ogni 5 min) - dati che cambiano spesso
+      const [okB] = await Promise.all([
+        caricaBollettini(),
+        caricaPresenze()
+      ]);
+      if (!okB) return;
+      // Anagrafica + Tempi: ogni 5 min (per essere reattivi a modifiche di anagrafica)
       if (pollingCounter % ANAGRAFICA_EVERY_N_POLLS === 0) {
         await Promise.all([caricaAnagrafica(), caricaTempi()]);
       }
@@ -1914,6 +2089,7 @@ $('#btnLogout').addEventListener('click', () => {
 const CACHE_ANAGRAFICA_KEY = 'efficienza_cache_anagrafica';
 const CACHE_BOLLETTINI_KEY = 'efficienza_cache_bollettini';
 const CACHE_TEMPI_KEY      = 'efficienza_cache_tempi';
+const CACHE_PRESENZE_KEY   = 'efficienza_cache_presenze';
 const CACHE_TS_KEY = 'efficienza_cache_ts';
 
 async function apiGet(action, params) {
@@ -1960,6 +2136,13 @@ function caricaCacheLocale() {
       const parsed = JSON.parse(t);
       if (Array.isArray(parsed)) {
         state.tempi = parsed;
+      }
+    }
+    const p = localStorage.getItem(CACHE_PRESENZE_KEY);
+    if (p) {
+      const parsed = JSON.parse(p);
+      if (Array.isArray(parsed)) {
+        state.presenze = parsed;
       }
     }
   } catch (e) {
@@ -2037,6 +2220,29 @@ async function caricaTempi() {
   }
 }
 
+function salvaCachePresenze() {
+  try {
+    localStorage.setItem(CACHE_PRESENZE_KEY, JSON.stringify(state.presenze));
+  } catch (e) {}
+}
+
+async function caricaPresenze() {
+  try {
+    const dalDate = new Date();
+    dalDate.setDate(dalDate.getDate() - 60);
+    const dal = fmtDate(dalDate);
+    const r = await apiGet('presenze', { dal });
+    if (!r.ok) throw new Error(r.error || 'Errore caricamento presenze');
+    state.presenze = r.presenze || [];
+    salvaCachePresenze();
+    aggiornaStatoTimbri();
+    return true;
+  } catch (e) {
+    console.warn('Presenze:', e);
+    return false;
+  }
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // TABS (con controllo ruolo per Riepilogo/Dashboard)
 // ═══════════════════════════════════════════════════════════════════════════
@@ -2077,6 +2283,7 @@ $('#btn-op').addEventListener('click', () => {
 
 async function apriScanner(step) {
   state.currentScanStep = step;
+  state.timbraMode = null; // reset modalità timbra se attiva
   const titles = {
     operatore: 'Scansiona Barcode Operatore',
     fase:      'Scansiona Barcode Fase',
@@ -2093,6 +2300,122 @@ async function apriScanner(step) {
   // Avvia webcam
   await avviaWebcam();
 }
+
+// ─── TIMBRI PRESENZA ──────────────────────────────────────────────────────
+async function apriScannerTimbra(tipo) {
+  state.timbraMode = tipo;             // 'IN' o 'OUT'
+  state.currentScanStep = null;        // disabilita flusso bollettino
+  $('#scannerTitle').textContent = (tipo === 'IN' ? '🟢 Timbra INGRESSO' : '🔴 Timbra USCITA') + ' — Sparare barcode operatore';
+  $('#scannerError').classList.remove('show');
+  $('#usbInput').value = '';
+  $('#modalScanner').classList.add('active');
+  setTimeout(() => $('#usbInput').focus(), 100);
+  await avviaWebcam();
+}
+
+async function processaTimbro(barcode, tipo) {
+  // Trovo l'operatore
+  let trovato = trovaInAnagrafica(barcode, state.anagrafica.operatori);
+  if (!trovato) {
+    // Smart retry
+    showLoading('Aggiorno anagrafica...');
+    await caricaAnagrafica();
+    hideLoading();
+    trovato = trovaInAnagrafica(barcode, state.anagrafica.operatori);
+  }
+  if (!trovato) {
+    toast('Operatore non trovato per il barcode "' + barcode + '"', 'error');
+    return;
+  }
+
+  // Controllo locale (anti-duplicato veloce)
+  const oggi = fmtDate(new Date());
+  const giàTimbrato = state.presenze.find(p =>
+    p.data === oggi && p.operatore_id === trovato.id && p.tipo === tipo
+  );
+  if (giàTimbrato) {
+    const label = tipo === 'IN' ? 'INGRESSO' : 'USCITA';
+    showAlert('Timbro già registrato', trovato.descrizione + ' ha già timbrato ' + label + ' oggi alle ' + (giàTimbrato.ora || '').slice(0,5), true);
+    return;
+  }
+  // Se è OUT, verifico che ci sia un IN
+  if (tipo === 'OUT') {
+    const haIn = state.presenze.some(p =>
+      p.data === oggi && p.operatore_id === trovato.id && p.tipo === 'IN'
+    );
+    if (!haIn) {
+      showAlert('Manca l\'ingresso', trovato.descrizione + ' non ha ancora timbrato l\'INGRESSO oggi.', true);
+      return;
+    }
+  }
+
+  // Chiama backend
+  showLoading('Registro timbro...');
+  try {
+    const r = await apiPost({
+      action: 'timbra',
+      operatore_id: trovato.id,
+      operatore_nome: trovato.descrizione,
+      tipo: tipo
+    });
+    hideLoading();
+    if (!r.ok) {
+      showAlert('Errore timbro', r.messaggio || r.error || 'Errore registrazione timbro', true);
+      return;
+    }
+    // Successo: aggiorno cache locale
+    const oraNow = new Date();
+    const timbroLocale = {
+      timestamp:      r.timestamp || oraNow.toISOString(),
+      data:           oggi,
+      ora:            oraNow.toTimeString().split(' ')[0],
+      operatore_id:   trovato.id,
+      operatore_nome: trovato.descrizione,
+      tipo:           tipo
+    };
+    state.presenze.push(timbroLocale);
+    salvaCachePresenze();
+    aggiornaStatoTimbri();
+    const label = tipo === 'IN' ? 'INGRESSO' : 'USCITA';
+    toast(label + ' ' + trovato.descrizione + ' alle ' + timbroLocale.ora.slice(0,5), 'success', { duration: 5000 });
+  } catch (e) {
+    hideLoading();
+    showAlert('Errore di rete', 'Timbro non registrato. Riprova.', true);
+  }
+}
+
+function aggiornaStatoTimbri() {
+  const el = $('#timbriStatus');
+  if (!el) return;
+  const oggi = fmtDate(new Date());
+  const timbriOggi = state.presenze.filter(p => p.data === oggi);
+  if (timbriOggi.length === 0) {
+    el.textContent = 'Nessun timbro oggi';
+    el.className = 'timbri-status';
+    return;
+  }
+  // Raggruppo per operatore: chi è ENTRATO, chi è USCITO
+  const perOp = {};
+  timbriOggi.forEach(p => {
+    if (!perOp[p.operatore_id]) {
+      perOp[p.operatore_id] = { nome: p.operatore_nome, in: null, out: null };
+    }
+    if (p.tipo === 'IN' && (!perOp[p.operatore_id].in || p.ora < perOp[p.operatore_id].in)) {
+      perOp[p.operatore_id].in = p.ora;
+    }
+    if (p.tipo === 'OUT' && (!perOp[p.operatore_id].out || p.ora > perOp[p.operatore_id].out)) {
+      perOp[p.operatore_id].out = p.ora;
+    }
+  });
+  const dentro = Object.values(perOp).filter(o => o.in && !o.out).length;
+  const usciti = Object.values(perOp).filter(o => o.in && o.out).length;
+  el.innerHTML = '<strong>' + dentro + '</strong> al lavoro · <strong>' + usciti + '</strong> usciti';
+  el.className = 'timbri-status has-in';
+}
+
+// Handler bottoni timbri
+$('#btnTimbraIn').addEventListener('click', () => apriScannerTimbra('IN'));
+$('#btnTimbraOut').addEventListener('click', () => apriScannerTimbra('OUT'));
 
 // Direzione fotocamera: 'environment' (posteriore, default) o 'user' (frontale)
 const CAMERA_KEY = 'efficienza_camera_facing';
@@ -2187,6 +2510,14 @@ function trovaInAnagrafica(barcode, lista) {
 }
 
 async function gestisciScansione(barcode) {
+  // MODALITÀ TIMBRA: se siamo in modalità timbra, il barcode è un operatore
+  if (state.timbraMode) {
+    const tipo = state.timbraMode;
+    state.timbraMode = null; // reset subito
+    await processaTimbro(barcode, tipo);
+    return;
+  }
+
   const step = state.currentScanStep;
 
   // SAFETY NET: anagrafica non ancora caricata
@@ -2427,7 +2758,7 @@ window.addEventListener('online', () => {
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden && state.role && backendUrl) {
     console.log('[wake] tablet attivo, refresh dati');
-    Promise.all([caricaAnagrafica(), caricaBollettini(), caricaTempi()]).then(() => {
+    Promise.all([caricaAnagrafica(), caricaBollettini(), caricaTempi(), caricaPresenze()]).then(() => {
       aggiornaContatoreOggi();
       const activeTab = document.querySelector('.tab-btn.active');
       const t = activeTab ? activeTab.dataset.tab : null;
@@ -2691,6 +3022,62 @@ $('#btnExport').addEventListener('click', () => {
   toast('Export scaricato', 'success');
 });
 
+// Export Excel — TC Mancanti
+const btnExportTc = document.getElementById('btnExportTcMancanti');
+if (btnExportTc) {
+  btnExportTc.addEventListener('click', () => {
+    // Riutilizzo il filtro periodo della Dashboard (state.currentPeriod)
+    const dataPeriodo = getBollettiniDashboard();
+    const mancanti = {};
+    dataPeriodo.forEach(b => {
+      const tc = getTCBollettino(b);
+      if (tc == null) {
+        const key = b.fase_id + '|' + b.op_barcode;
+        if (!mancanti[key]) {
+          mancanti[key] = {
+            codice: b.op_barcode,
+            fase_id: b.fase_id,
+            fase_descrizione: b.fase_descrizione,
+            conta: 0,
+            operatori: new Set(),
+            primaScansione: b.timestamp,
+            ultimaScansione: b.timestamp
+          };
+        }
+        mancanti[key].conta++;
+        mancanti[key].operatori.add(b.operatore_nome);
+        if (b.timestamp < mancanti[key].primaScansione) mancanti[key].primaScansione = b.timestamp;
+        if (b.timestamp > mancanti[key].ultimaScansione) mancanti[key].ultimaScansione = b.timestamp;
+      }
+    });
+
+    const lista = Object.values(mancanti).sort((a, b) => b.conta - a.conta);
+    if (lista.length === 0) {
+      toast('Nessun TC mancante nel periodo selezionato', 'success');
+      return;
+    }
+
+    const rows = lista.map(x => ({
+      'Codice':              x.codice,
+      'ID Fase':             x.fase_id,
+      'Fase':                x.fase_descrizione,
+      'Conta scansioni':     x.conta,
+      'Operatori coinvolti': Array.from(x.operatori).join(', '),
+      'Prima scansione':     x.primaScansione ? fmtDateIT(x.primaScansione.slice(0,10)) + ' ' + x.primaScansione.slice(11,16) : '',
+      'Ultima scansione':    x.ultimaScansione ? fmtDateIT(x.ultimaScansione.slice(0,10)) + ' ' + x.ultimaScansione.slice(11,16) : ''
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    ws['!cols'] = [{wch:14},{wch:10},{wch:28},{wch:16},{wch:40},{wch:18},{wch:18}];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'TC Mancanti');
+    const oggi = fmtDate(new Date()).replace(/-/g,'');
+    const periodoLabel = state.currentPeriod || 'oggi';
+    XLSX.writeFile(wb, 'TC_Mancanti_' + periodoLabel + '_' + oggi + '.xlsx');
+    toast('Export TC Mancanti scaricato (' + lista.length + ' codici)', 'success');
+  });
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // DASHBOARD
 // ═══════════════════════════════════════════════════════════════════════════
@@ -2762,6 +3149,58 @@ function refreshDashboard() {
 }
 
 // ─── Sezione Efficienza Operatori ─────────────────────────────────────────
+// Calcolo tempo disponibile per UN giorno specifico di UN operatore, usando i timbri:
+//   - Se ha sia IN che OUT  → tempo = (OUT - IN) - PAUSA_PRANZO_SEC
+//   - Se ha solo IN ed è oggi → tempo = (ora attuale - IN) - eventuale pausa già passata
+//   - Se manca IN          → ritorna 0 (operatore escluso da quel giorno)
+const PAUSA_PRANZO_SEC = 3600;  // 1h sottratta solo se l'operatore ha effettivamente attraversato la fascia pausa
+function tempoDispOpGiorno(operatoreId, giorno) {
+  const timbri = state.presenze.filter(p => p.data === giorno && p.operatore_id === operatoreId);
+  const timIn  = timbri.filter(p => p.tipo === 'IN' ).sort((a,b) => (a.ora||'').localeCompare(b.ora||''))[0];
+  const timOut = timbri.filter(p => p.tipo === 'OUT').sort((a,b) => (b.ora||'').localeCompare(a.ora||''))[0];
+
+  if (!timIn) return 0; // niente IN = giorno escluso
+
+  const inSec = oraToSec(timIn.ora);
+  const oggi = fmtDate(new Date());
+  let outSec;
+  if (timOut) {
+    outSec = oraToSec(timOut.ora);
+  } else if (giorno === oggi) {
+    const now = new Date();
+    outSec = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
+  } else {
+    // Giorno passato senza OUT: escludo
+    return 0;
+  }
+
+  let durata = outSec - inSec;
+  if (durata <= 0) return 0;
+
+  // Sottraggo 1h pausa pranzo SE l'intervallo include la fascia 12:00-14:00
+  // (consideriamo che chiunque attraversi quella fascia ha fatto la pausa)
+  const FASCIA_IN  = 12 * 3600;
+  const FASCIA_OUT = 14 * 3600;
+  if (outSec > FASCIA_IN && inSec < FASCIA_OUT) {
+    // Se l'operatore copre completamente la fascia, sottraggo 1h piena
+    const overlap = Math.min(outSec, FASCIA_OUT) - Math.max(inSec, FASCIA_IN);
+    if (overlap >= PAUSA_PRANZO_SEC) {
+      durata -= PAUSA_PRANZO_SEC;
+    } else {
+      // Se l'overlap con la fascia pausa è < 1h (es. uscita alle 12:30), sottraggo solo l'overlap
+      durata -= Math.max(0, overlap);
+    }
+  }
+
+  return Math.max(0, durata);
+}
+
+function oraToSec(ora) {
+  if (!ora) return 0;
+  const parts = ora.split(':');
+  return (parseInt(parts[0]) || 0) * 3600 + (parseInt(parts[1]) || 0) * 60 + (parseInt(parts[2]) || 0);
+}
+
 function refreshEfficienza(data) {
   const container = $('#efficienzaList');
   const summary = $('#effSummary');
@@ -2797,30 +3236,56 @@ function refreshEfficienza(data) {
     else perOp[k].nTcMancanti++;
   });
 
-  const operatori = Object.values(perOp).map(o => {
+  // Costruisco lista operatori, con tempo disponibile REALE da timbri
+  const operatoriTutti = Object.values(perOp).map(o => {
     let tempoDisponibile = 0;
+    let giorniSenzaTimbri = 0;
+    const dettagliTimbri = [];
     o.giorni.forEach(g => {
-      tempoDisponibile += (g === oggi) ? secondiLavorabilitaOggi() : TURNO_SECONDI;
+      const t = tempoDispOpGiorno(o.id, g);
+      if (t === 0) {
+        giorniSenzaTimbri++;
+      } else {
+        tempoDisponibile += t;
+      }
+      // Raccolgo i timbri di oggi per visualizzazione
+      if (g === oggi) {
+        const timbri = state.presenze.filter(p => p.data === g && p.operatore_id === o.id);
+        const timIn  = timbri.filter(p => p.tipo === 'IN' ).sort((a,b) => (a.ora||'').localeCompare(b.ora||''))[0];
+        const timOut = timbri.filter(p => p.tipo === 'OUT').sort((a,b) => (b.ora||'').localeCompare(a.ora||''))[0];
+        if (timIn) dettagliTimbri.push({ in: timIn.ora, out: timOut ? timOut.ora : null });
+      }
     });
     const efficienza = tempoDisponibile > 0 ? (o.tcTotale / tempoDisponibile) * 100 : 0;
     return {
       id: o.id, nome: o.nome, nGiorni: o.giorni.size, tcTotale: o.tcTotale,
       nBollettini: o.nBollettini, nTcMancanti: o.nTcMancanti,
-      tempoDisponibile, efficienza, haOggi: o.giorni.has(oggi)
+      tempoDisponibile, efficienza,
+      haOggi: o.giorni.has(oggi),
+      giorniSenzaTimbri,
+      timbriOggi: dettagliTimbri[0] || null,  // primo (e unico) record dei timbri di oggi
+      escluso: tempoDisponibile === 0
     };
-  }).sort((a, b) => b.efficienza - a.efficienza);
+  });
+
+  // Separazione: operatori con timbri (calcolati) vs senza timbri (esclusi)
+  const operatori = operatoriTutti.filter(o => !o.escluso).sort((a, b) => b.efficienza - a.efficienza);
+  const esclusi   = operatoriTutti.filter(o =>  o.escluso);
 
   // Render righe tabella
-  container.innerHTML = operatori.map(o => {
+  let rows = operatori.map(o => {
     const cls = o.efficienza >= 85 ? 'high' : o.efficienza >= 70 ? 'mid' : 'low';
     const w = Math.max(0, Math.min(100, o.efficienza));
     const statusCls = o.haOggi ? 'live' : '';
     const alertCell = o.nTcMancanti > 0
-      ? '<span class="eff-alert-badge" title="' + o.nTcMancanti + ' bollettini con codice senza TC nel database">' + o.nTcMancanti + '</span>'
+      ? '<span class="eff-alert-badge" title="' + o.nTcMancanti + ' bollettini senza TC nel database">' + o.nTcMancanti + '</span>'
       : '<span class="eff-alert-dash">—</span>';
+    const timbriInfo = o.timbriOggi
+      ? '<div class="eff-timbri-info">' + (o.timbriOggi.in||'').slice(0,5) + (o.timbriOggi.out ? ' → ' + o.timbriOggi.out.slice(0,5) : ' → ...') + '</div>'
+      : '';
 
     return '<tr>'
-      + '<td><span class="eff-status ' + statusCls + '"></span><span class="eff-op-name">' + o.nome + '</span></td>'
+      + '<td><span class="eff-status ' + statusCls + '"></span><span class="eff-op-name">' + o.nome + '</span>' + timbriInfo + '</td>'
       + '<td class="eff-pct ' + cls + '">' + o.efficienza.toFixed(1) + '%</td>'
       + '<td class="eff-bar-cell"><div class="eff-bar-track"><div class="eff-bar-progress ' + cls + '" style="width:' + w + '%"></div></div></td>'
       + '<td class="eff-num">' + formatSecondi(o.tcTotale) + '</td>'
@@ -2829,6 +3294,17 @@ function refreshEfficienza(data) {
       + '<td class="eff-alert-cell">' + alertCell + '</td>'
       + '</tr>';
   }).join('');
+
+  // Righe operatori esclusi (senza timbri)
+  if (esclusi.length > 0) {
+    rows += esclusi.map(o => '<tr class="eff-row-escluso">'
+      + '<td><span class="eff-status"></span><span class="eff-op-name">' + o.nome + '</span><div class="eff-timbri-info eff-timbri-missing">⚠ senza timbri — escluso dal calcolo</div></td>'
+      + '<td colspan="5" style="color:var(--ink-soft);font-style:italic">Non è possibile calcolare l\'efficienza senza i timbri di ingresso/uscita</td>'
+      + '<td class="eff-alert-cell">' + (o.nTcMancanti > 0 ? '<span class="eff-alert-badge">'+o.nTcMancanti+'</span>' : '<span class="eff-alert-dash">—</span>') + '</td>'
+      + '</tr>').join('');
+  }
+
+  container.innerHTML = rows;
 
   // Summary KPI in alto
   if (summary) {
@@ -2839,15 +3315,14 @@ function refreshEfficienza(data) {
     const effMedia = totDisp > 0 ? (totTcTotale / totDisp) * 100 : 0;
     const effClass = effMedia >= 85 ? 'high' : effMedia >= 70 ? 'mid' : 'low';
     const tcMancCls = totTcMancanti > 0 ? 'warn' : '';
-
-    // Tempo medio disponibile per operatore
     const avgDispOp = operatori.length > 0 ? totDisp / operatori.length : 0;
+    const esclusiSub = esclusi.length > 0 ? esclusi.length + ' esclusi (senza timbri)' : 'tutti hanno timbrato';
 
     summary.innerHTML = ''
       + '<div class="eff-sum-cell">'
       +   '<div class="eff-sum-label">Efficienza media</div>'
       +   '<div class="eff-sum-value ' + effClass + '">' + effMedia.toFixed(1) + '%</div>'
-      +   '<div class="eff-sum-sub">' + operatori.length + ' operatori attivi</div>'
+      +   '<div class="eff-sum-sub">' + operatori.length + ' op. calcolati · ' + esclusiSub + '</div>'
       + '</div>'
       + '<div class="eff-sum-cell">'
       +   '<div class="eff-sum-label">Tempo realizzato</div>'
@@ -2857,7 +3332,7 @@ function refreshEfficienza(data) {
       + '<div class="eff-sum-cell">'
       +   '<div class="eff-sum-label">Tempo disponibile</div>'
       +   '<div class="eff-sum-value">' + formatSecondi(avgDispOp) + '</div>'
-      +   '<div class="eff-sum-sub">a testa · ' + formatSecondi(totDisp) + ' totali</div>'
+      +   '<div class="eff-sum-sub">media a testa · ' + formatSecondi(totDisp) + ' totali</div>'
       + '</div>'
       + '<div class="eff-sum-cell">'
       +   '<div class="eff-sum-label">Bollettini totali</div>'
@@ -3012,11 +3487,12 @@ async function caricaDatiIniziali(silenzioso) {
   }
   if (!silenzioso) showLoading('Sincronizzazione...');
 
-  // PARALLELO: anagrafica, bollettini, tempi in contemporanea
-  const [ok1, ok2, ok3] = await Promise.all([
+  // PARALLELO: anagrafica, bollettini, tempi, presenze in contemporanea
+  const [ok1, ok2, ok3, ok4] = await Promise.all([
     caricaAnagrafica(),
     caricaBollettini(),
-    caricaTempi()
+    caricaTempi(),
+    caricaPresenze()
   ]);
 
   if (!silenzioso) hideLoading();
@@ -3024,6 +3500,7 @@ async function caricaDatiIniziali(silenzioso) {
   if (ok1) {
     populateFilters();
     aggiornaContatoreOggi();
+    aggiornaStatoTimbri();
   } else if (!silenzioso) {
     showAlert('Connessione lenta', 'Sto usando i dati salvati nel dispositivo. Tira giù per aggiornare quando la connessione torna.', true);
   }
