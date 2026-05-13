@@ -1865,7 +1865,7 @@ body { padding-bottom: 38px; }
 // ═══════════════════════════════════════════════════════════════════════════
 // CONFIGURAZIONE & STATO
 // ═══════════════════════════════════════════════════════════════════════════
-const APP_VERSION = '3.1.4';   // versione frontend — incremento ad ogni release per debug
+const APP_VERSION = '3.1.5';   // versione frontend — incremento ad ogni release per debug
 const APP_BUILD = '2026-05-13'; // data build per identificare la versione caricata
 
 const DEFAULT_BACKEND_URL = 'https://script.google.com/macros/s/AKfycbwftomvs8gY5EmwTnYsq3vfxzwFGwX90g9Dbj0EOU9D_AxKkQV7nrtGmONKTMnJrm4HAA/exec';
@@ -3490,15 +3490,24 @@ function refreshDashboard() {
 //   - Se ha solo IN ed è oggi → tempo = (ora attuale - IN) - eventuale pausa già passata
 //   - Se manca IN          → ritorna 0 (operatore escluso da quel giorno)
 const PAUSA_PRANZO_SEC = 3600;  // 1h sottratta solo se l'operatore ha effettivamente attraversato la fascia pausa
+const TURNO_NETTO_SEC = TURNO_SECONDI - PAUSA_PRANZO_SEC;  // 7h = 25200s — fallback per giorni passati senza timbri
+
 function tempoDispOpGiorno(operatoreId, giorno) {
   const timbri = state.presenze.filter(p => p.data === giorno && p.operatore_id === operatoreId);
   const timIn  = timbri.filter(p => p.tipo === 'IN' ).sort((a,b) => (a.ora||'').localeCompare(b.ora||''))[0];
   const timOut = timbri.filter(p => p.tipo === 'OUT').sort((a,b) => (b.ora||'').localeCompare(a.ora||''))[0];
 
-  if (!timIn) return 0; // niente IN = giorno escluso
+  const oggi = fmtDate(new Date());
+
+  if (!timIn) {
+    // Niente IN registrato:
+    //  - Oggi → veramente non timbrato (escluso dal calcolo, ritorna 0)
+    //  - Giorno passato → assumo turno standard 7h netti (timbri non ancora attivi all'epoca, ma c'erano bollettini = presente)
+    if (giorno === oggi) return 0;
+    return TURNO_NETTO_SEC;
+  }
 
   const inSec = oraToSec(timIn.ora);
-  const oggi = fmtDate(new Date());
   let outSec;
   if (timOut) {
     outSec = oraToSec(timOut.ora);
@@ -3506,8 +3515,8 @@ function tempoDispOpGiorno(operatoreId, giorno) {
     const now = new Date();
     outSec = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
   } else {
-    // Giorno passato senza OUT: escludo
-    return 0;
+    // Giorno passato con IN ma senza OUT (probabile dimenticanza): assumo turno standard
+    return TURNO_NETTO_SEC;
   }
 
   let durata = outSec - inSec;
