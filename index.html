@@ -613,6 +613,9 @@ input, select { font-family: inherit; font-size: inherit; color: inherit; }
 /* ───────────── DASHBOARD ───────────── */
 .period-selector {
   display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -632,6 +635,51 @@ input, select { font-family: inherit; font-size: inherit; color: inherit; }
   background: var(--accent);
   color: #fff;
   font-weight: 600;
+}
+.period-divider {
+  width: 1px;
+  height: 22px;
+  background: var(--line);
+  margin: 0 6px;
+}
+.period-custom {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 4px;
+}
+.period-custom-lbl {
+  font-size: 12px;
+  color: var(--ink-soft);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: .3px;
+}
+.period-date {
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  font-size: 12px;
+  font-family: 'JetBrains Mono', monospace;
+  background: var(--bg);
+  color: var(--ink);
+  cursor: pointer;
+}
+.period-date:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.period-btn-apply {
+  background: var(--ink);
+  color: #fff;
+  font-weight: 600;
+  padding: 6px 12px;
+  font-size: 12px;
+}
+.period-btn-apply:hover { background: var(--accent); }
+@media (max-width: 700px) {
+  .period-divider { display: none; }
+  .period-custom { width: 100%; flex-wrap: wrap; padding-top: 6px; }
 }
 
 .kpi-grid {
@@ -1650,9 +1698,18 @@ body { padding-bottom: 38px; }
 
   <div class="period-selector" id="periodSelector">
     <button class="period-btn active" data-period="oggi">Oggi</button>
+    <button class="period-btn" data-period="ieri">Ieri</button>
     <button class="period-btn" data-period="settimana">Settimana</button>
     <button class="period-btn" data-period="mese">Mese</button>
     <button class="period-btn" data-period="tutto">Sempre</button>
+    <span class="period-divider"></span>
+    <span class="period-custom">
+      <span class="period-custom-lbl">Dal</span>
+      <input type="date" id="periodDal" class="period-date">
+      <span class="period-custom-lbl">al</span>
+      <input type="date" id="periodAl" class="period-date">
+      <button class="period-btn period-btn-apply" id="periodApply" type="button">Applica</button>
+    </span>
   </div>
 
   <div class="kpi-grid">
@@ -1869,7 +1926,7 @@ body { padding-bottom: 38px; }
 // ═══════════════════════════════════════════════════════════════════════════
 // CONFIGURAZIONE & STATO
 // ═══════════════════════════════════════════════════════════════════════════
-const APP_VERSION = '3.2.0';   // versione frontend — incremento ad ogni release per debug
+const APP_VERSION = '3.2.1';   // versione frontend — incremento ad ogni release per debug
 const APP_BUILD = '2026-05-13'; // data build per identificare la versione caricata
 
 const DEFAULT_BACKEND_URL = 'https://script.google.com/macros/s/AKfycbwftomvs8gY5EmwTnYsq3vfxzwFGwX90g9Dbj0EOU9D_AxKkQV7nrtGmONKTMnJrm4HAA/exec';
@@ -3424,6 +3481,8 @@ if (btnExportTc) {
 // DASHBOARD
 // ═══════════════════════════════════════════════════════════════════════════
 $$('#periodSelector .period-btn').forEach(b => {
+  // Salto il bottone Applica (gestito separatamente)
+  if (b.id === 'periodApply') return;
   b.addEventListener('click', () => {
     $$('#periodSelector .period-btn').forEach(x => x.classList.remove('active'));
     b.classList.add('active');
@@ -3432,11 +3491,55 @@ $$('#periodSelector .period-btn').forEach(b => {
   });
 });
 
+// Bottone "Applica" per il range custom
+const _periodApplyBtn = $('#periodApply');
+if (_periodApplyBtn) {
+  _periodApplyBtn.addEventListener('click', () => {
+    const dal = $('#periodDal').value;
+    const al  = $('#periodAl').value;
+    if (!dal && !al) {
+      toast('Inserisci almeno una data', 'error');
+      return;
+    }
+    if (dal && al && dal > al) {
+      toast('La data "Dal" deve essere precedente o uguale a "Al"', 'error');
+      return;
+    }
+    state.customDal = dal || null;
+    state.customAl  = al  || null;
+    state.currentPeriod = 'custom';
+    $$('#periodSelector .period-btn').forEach(x => x.classList.remove('active'));
+    _periodApplyBtn.classList.add('active');
+    refreshDashboard();
+    const labelDal = dal ? fmtDateIT(dal) : '∞';
+    const labelAl  = al  ? fmtDateIT(al)  : 'oggi';
+    toast('Periodo: ' + labelDal + ' → ' + labelAl, 'info', { duration: 2500 });
+  });
+}
+
+// Pre-popolo i date picker con "ieri" e "oggi" come default sensati
+(function initDatePickers() {
+  const oggi = new Date();
+  const ieri = new Date(oggi); ieri.setDate(ieri.getDate() - 1);
+  const dalEl = $('#periodDal');
+  const alEl  = $('#periodAl');
+  if (dalEl) dalEl.value = fmtDate(ieri);
+  if (alEl)  alEl.value  = fmtDate(oggi);
+})();
+
 function getBollettiniDashboard() {
   const oggi = new Date();
   let dal = null;
-  if (state.currentPeriod === 'oggi') dal = fmtDate(oggi);
-  else if (state.currentPeriod === 'settimana') {
+  let al = null;
+  if (state.currentPeriod === 'oggi') {
+    dal = fmtDate(oggi);
+    al  = fmtDate(oggi);
+  } else if (state.currentPeriod === 'ieri') {
+    const d = new Date(oggi);
+    d.setDate(d.getDate() - 1);
+    dal = fmtDate(d);
+    al  = fmtDate(d);
+  } else if (state.currentPeriod === 'settimana') {
     const d = new Date(oggi);
     d.setDate(d.getDate() - 6);
     dal = fmtDate(d);
@@ -3444,9 +3547,13 @@ function getBollettiniDashboard() {
     const d = new Date(oggi);
     d.setDate(d.getDate() - 29);
     dal = fmtDate(d);
+  } else if (state.currentPeriod === 'custom') {
+    dal = state.customDal || null;
+    al  = state.customAl  || null;
   }
   let r = state.bollettini.slice();
-  if (dal) r = r.filter(b => b.data >= dal);
+  if (dal) r = r.filter(b => normalizzaData(b.data) >= dal);
+  if (al)  r = r.filter(b => normalizzaData(b.data) <= al);
   return r;
 }
 
