@@ -1869,7 +1869,7 @@ body { padding-bottom: 38px; }
 // ═══════════════════════════════════════════════════════════════════════════
 // CONFIGURAZIONE & STATO
 // ═══════════════════════════════════════════════════════════════════════════
-const APP_VERSION = '3.1.9';   // versione frontend — incremento ad ogni release per debug
+const APP_VERSION = '3.2.0';   // versione frontend — incremento ad ogni release per debug
 const APP_BUILD = '2026-05-13'; // data build per identificare la versione caricata
 
 const DEFAULT_BACKEND_URL = 'https://script.google.com/macros/s/AKfycbwftomvs8gY5EmwTnYsq3vfxzwFGwX90g9Dbj0EOU9D_AxKkQV7nrtGmONKTMnJrm4HAA/exec';
@@ -2895,8 +2895,8 @@ async function gestisciScansione(barcode) {
       toast('Hai scansionato un barcode fase (' + matchFase.descrizione + '), non un codice', 'error');
       return;
     }
-    // Salva il bollettino (mantenendo operatore e fase per il prossimo)
-    salvaBollettino(codeOP, { mantieniOpFase: true });
+    // Salva il bollettino: reset completo del form per il prossimo
+    salvaBollettino(codeOP);
     flashScanBtn('op');
     chiudiScanner();
   }
