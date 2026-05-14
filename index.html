@@ -799,6 +799,10 @@ input, select { font-family: inherit; font-size: inherit; color: inherit; }
   box-shadow: 0 0 0 3px rgba(46,125,50,.15);
   animation: status-pulse 2s ease-in-out infinite;
 }
+.eff-status.closed {
+  background: #2e7d32;
+  /* niente animazione, niente ombra pulsante: status fisso */
+}
 @keyframes status-pulse {
   0%, 100% { box-shadow: 0 0 0 3px rgba(46,125,50,.15); }
   50%      { box-shadow: 0 0 0 6px rgba(46,125,50,.05); }
@@ -1492,7 +1496,7 @@ body { padding-bottom: 38px; }
 <!-- ═══════════════════════ PAGINA: INSERIMENTO ═══════════════════════ -->
 <section class="page active" id="page-inserimento">
   <h1 class="page-title">Inserimento Bollettini</h1>
-  <p class="page-sub">Apri lo scanner e spara in sequenza: operatore → fase → codice. L'app avanza da sola tra gli step.</p>
+  <p class="page-sub">Tocca un bottone per scansionarne il barcode: operatore, fase e codice componente, in qualsiasi ordine.</p>
 
   <!-- Timbri presenza -->
   <div class="timbri-row">
@@ -1740,7 +1744,7 @@ body { padding-bottom: 38px; }
   <span class="sb-divider"></span>
   <span class="sb-item"><span class="sb-label">Backend</span> <span class="sb-value" id="sbBackend">…</span></span>
   <span class="sb-divider"></span>
-  <span class="sb-item" title="Operatori · Bollettini · Tempi · Presenze caricati"><span class="sb-label">Dati</span> <span class="sb-value sb-counters" id="sbCounters">—</span></span>
+  <span class="sb-item" title="Operatori in anagrafica · Bollettini (oggi/cache 60gg) · Tempi standard · Presenze (oggi/cache 60gg)"><span class="sb-label">Dati</span> <span class="sb-value sb-counters" id="sbCounters">—</span></span>
   <span class="sb-divider"></span>
   <span class="sb-item"><span class="sb-label">Ultima sync</span> <span class="sb-value" id="sbSync">mai</span></span>
   <span class="sb-flex"></span>
@@ -1865,7 +1869,7 @@ body { padding-bottom: 38px; }
 // ═══════════════════════════════════════════════════════════════════════════
 // CONFIGURAZIONE & STATO
 // ═══════════════════════════════════════════════════════════════════════════
-const APP_VERSION = '3.1.5';   // versione frontend — incremento ad ogni release per debug
+const APP_VERSION = '3.1.9';   // versione frontend — incremento ad ogni release per debug
 const APP_BUILD = '2026-05-13'; // data build per identificare la versione caricata
 
 const DEFAULT_BACKEND_URL = 'https://script.google.com/macros/s/AKfycbwftomvs8gY5EmwTnYsq3vfxzwFGwX90g9Dbj0EOU9D_AxKkQV7nrtGmONKTMnJrm4HAA/exec';
@@ -2087,8 +2091,8 @@ function applicaRuolo(role) {
 // ─── Polling automatico differenziato ──────────────────────────────
 let pollingInterval = null;
 let pollingCounter = 0;
-const POLL_MS = 5 * 60 * 1000;  // 5 minuti per bollettini
-const ANAGRAFICA_EVERY_N_POLLS = 1;  // anagrafica anche ogni 5 minuti (per essere reattivi a modifiche)
+const POLL_MS = 60 * 1000;          // 60 secondi per bollettini + presenze (dati che cambiano spesso)
+const ANAGRAFICA_EVERY_N_POLLS = 5; // anagrafica ogni 5 cicli = ogni 5 minuti (cambia raramente)
 
 function avviaPolling() {
   fermaPolling();
@@ -2427,11 +2431,26 @@ async function caricaPresenze() {
 // ═══════════════════════════════════════════════════════════════════════════
 // TABS (con controllo ruolo per Riepilogo/Dashboard)
 // ═══════════════════════════════════════════════════════════════════════════
-function vaiAllaTab(t) {
+async function vaiAllaTab(t) {
   $$('.tab-btn').forEach(x => x.classList.toggle('active', x.dataset.tab === t));
   $$('.page').forEach(p => p.classList.toggle('active', p.id === 'page-' + t));
+  // Render immediato con i dati che ho già in memoria
   if (t === 'riepilogo') refreshRiepilogo();
   if (t === 'dashboard') refreshDashboard();
+  // Per Riepilogo/Dashboard forzo anche un refresh dal backend in parallelo
+  // (così se ci sono timbri/bollettini nuovi, l'utente vede subito i numeri aggiornati)
+  if ((t === 'riepilogo' || t === 'dashboard') && backendUrl) {
+    try {
+      await Promise.all([caricaBollettini(), caricaPresenze()]);
+      aggiornaContatoreOggi();
+      aggiornaStatoTimbri();
+      aggiornaStatusBar('ok');
+      if (t === 'riepilogo') refreshRiepilogo();
+      if (t === 'dashboard') refreshDashboard();
+    } catch (e) {
+      console.warn('Refresh on tab change failed:', e);
+    }
+  }
 }
 
 $$('.tab-btn').forEach(b => {
@@ -2462,12 +2481,9 @@ $('#btn-op').addEventListener('click', () => {
 });
 
 async function apriScanner(step) {
-  state.timbraMode = null; // reset modalità timbra se attiva
-  // Auto-resolve dello step: parto sempre da quello che manca per primo
-  // (l'utente può cliccare qualsiasi bottone — l'app capisce da dove serve partire)
-  if (!state.scan.operatore)       state.currentScanStep = 'operatore';
-  else if (!state.scan.fase)       state.currentScanStep = 'fase';
-  else                              state.currentScanStep = 'op';
+  state.timbraMode = null;
+  // Usa lo step esplicitamente passato dal bottone cliccato
+  state.currentScanStep = step;
 
   aggiornaTitoloScanner();
   $('#scannerError').classList.remove('show');
@@ -2830,9 +2846,8 @@ async function gestisciScansione(barcode) {
     aggiornaUI('operatore');
     bloccaBottone('operatore');
     flashScanBtn('operatore');
-    toast('👤 ' + trovato.descrizione, 'info', { duration: 1200 });
-    // AUTO-ADVANCE allo step successivo
-    avanzaStep();
+    toast('👤 ' + trovato.descrizione, 'info', { duration: 1500 });
+    chiudiScanner();
     return;
   }
 
@@ -2853,8 +2868,8 @@ async function gestisciScansione(barcode) {
     aggiornaUI('fase');
     bloccaBottone('fase');
     flashScanBtn('fase');
-    toast('🔧 ' + trovato.descrizione, 'info', { duration: 1200 });
-    avanzaStep();
+    toast('🔧 ' + trovato.descrizione, 'info', { duration: 1500 });
+    chiudiScanner();
     return;
   }
 
@@ -2880,29 +2895,20 @@ async function gestisciScansione(barcode) {
       toast('Hai scansionato un barcode fase (' + matchFase.descrizione + '), non un codice', 'error');
       return;
     }
-    // Salva (mantenendo operatore e fase per la prossima sparata)
+    // Salva il bollettino (mantenendo operatore e fase per il prossimo)
     salvaBollettino(codeOP, { mantieniOpFase: true });
     flashScanBtn('op');
-    // Lo step resta 'op': pronto per il prossimo codice
-    aggiornaTitoloScanner();
+    chiudiScanner();
   }
-}
-
-// Avanza allo step successivo in base a cosa è già stato compilato
-function avanzaStep() {
-  if (!state.scan.operatore)       state.currentScanStep = 'operatore';
-  else if (!state.scan.fase)       state.currentScanStep = 'fase';
-  else                              state.currentScanStep = 'op';
-  aggiornaTitoloScanner();
 }
 
 // Aggiorna il titolo della modale scanner in base allo step corrente
 function aggiornaTitoloScanner() {
   const step = state.currentScanStep;
   let title;
-  if (step === 'operatore')  title = '① Scansiona barcode OPERATORE';
-  else if (step === 'fase')  title = '② Scansiona barcode FASE  ·  ' + (state.scan.operatore ? state.scan.operatore.descrizione : '');
-  else if (step === 'op')    title = '③ Scansiona CODICE COMPONENTE  ·  ' + (state.scan.fase ? state.scan.fase.descrizione : '');
+  if (step === 'operatore')  title = 'Scansiona barcode OPERATORE';
+  else if (step === 'fase')  title = 'Scansiona barcode FASE';
+  else if (step === 'op')    title = 'Scansiona CODICE COMPONENTE';
   else                        title = 'Scanner';
   const el = $('#scannerTitle');
   if (el) el.textContent = title;
@@ -3621,12 +3627,23 @@ function refreshEfficienza(data) {
   let rows = operatori.map(o => {
     const cls = o.efficienza >= 85 ? 'high' : o.efficienza >= 70 ? 'mid' : 'low';
     const w = Math.max(0, Math.min(100, o.efficienza));
-    const statusCls = o.haOggi ? 'live' : '';
+    // Stato visivo: live (ancora dentro), chiuso (già uscito), nessun timbro
+    let statusCls = '';
+    let statusLabel = '';
+    if (o.haOggi && o.timbriOggi) {
+      if (o.timbriOggi.out) {
+        statusCls = 'closed';
+        statusLabel = ' · giornata chiusa';
+      } else {
+        statusCls = 'live';
+        statusLabel = ' · al lavoro';
+      }
+    }
     const alertCell = o.nTcMancanti > 0
       ? '<span class="eff-alert-badge" title="' + o.nTcMancanti + ' bollettini senza TC nel database">' + o.nTcMancanti + '</span>'
       : '<span class="eff-alert-dash">—</span>';
     const timbriInfo = o.timbriOggi
-      ? '<div class="eff-timbri-info">' + (o.timbriOggi.in||'').slice(0,5) + (o.timbriOggi.out ? ' → ' + o.timbriOggi.out.slice(0,5) : ' → ...') + '</div>'
+      ? '<div class="eff-timbri-info">' + (o.timbriOggi.in||'').slice(0,5) + (o.timbriOggi.out ? ' → ' + o.timbriOggi.out.slice(0,5) : ' → ...') + statusLabel + '</div>'
       : '';
 
     return '<tr>'
@@ -3875,17 +3892,20 @@ function aggiornaStatusBar(stato) {
     else if (stato === undefined) { /* lascia stato precedente */ }
     else                       { sbB.textContent = '…';      sbB.className = 'sb-value'; }
   }
-  // Contatori: Op N · Bol N · TC N · Pres N
+  // Contatori: Op N · Bol N (oggi/totali) · TC N · Pres N (oggi/totali)
   if (sbC) {
+    const oggi = fmtDate(new Date());
     const nOp  = state.anagrafica.operatori.length;
-    const nBol = state.bollettini.length;
+    const nBolTot = state.bollettini.length;
+    const nBolOggi = state.bollettini.filter(b => normalizzaData(b.data) === oggi).length;
     const nTc  = state.tempi.length;
-    const nPr  = state.presenze.length;
-    const presCls = (nPr === 0 && lastErrors.presenze) ? 'sb-cnt err' : (nPr > 0 ? 'sb-cnt ok' : 'sb-cnt');
+    const nPrTot = state.presenze.length;
+    const nPrOggi = state.presenze.filter(p => normalizzaData(p.data) === oggi).length;
+    const presCls = (nPrTot === 0 && lastErrors.presenze) ? 'sb-cnt err' : (nPrOggi > 0 ? 'sb-cnt ok' : 'sb-cnt');
     sbC.innerHTML = 'Op <strong>' + nOp + '</strong>'
-      + ' · Bol <strong>' + nBol + '</strong>'
+      + ' · Bol <strong>' + nBolOggi + '</strong>/' + nBolTot
       + ' · TC <strong>' + nTc + '</strong>'
-      + ' · <span class="' + presCls + '">Pres <strong>' + nPr + '</strong></span>';
+      + ' · <span class="' + presCls + '">Pres <strong>' + nPrOggi + '</strong>/' + nPrTot + '</span>';
   }
 }
 
